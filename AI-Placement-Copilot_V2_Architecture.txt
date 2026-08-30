@@ -1,0 +1,1070 @@
+
+
+
+Overview
+
+Implementation Plan
+
+
+AI Placement Copilot — Architecture V2
+Final Implementation Baseline | All 10 approved refinements applied over V1
+
+Table of Contents
+V1 → V2 Change Summary
+Updated System Architecture
+Prisma Schema V2
+ER Diagram V2
+Updated Folder Structure
+Updated API Design
+Updated Development Roadmap
+Migration Notes (V1 → V2)
+1. V1 → V2 Change Summary
+#	Refinement	V1 State	V2 State	Impact
+1	CompanyMember RBAC	User.companyId + implicit "owner" via Company.ownerId	New CompanyMember join model with CompanyRole enum (OWNER, ADMIN, RECRUITER, INTERVIEWER, HR)	1 new model, 1 new enum, User.companyId removed
+2	InterviewQuestion model	Interview.questions String[]	New InterviewQuestion model with questionText, topic, difficulty, orderIndex	1 new model, 1 new enum, replaces String[]
+3	Structured Resume analytics	Resume.aiAnalysis Json? + Resume.score Int?	New ResumeAnalysis model with typed fields: overallScore, formatScore, contentScore, keywordsFound[], keywordsMissing[], suggestions[], sectionScores Json, rawAnalysis Json?	1 new model, structured fields replace opaque JSON
+4	AuditLog model	Not present	New AuditLog model tracking action, entityType, entityId, userId, metadata, ipAddress	1 new model, 1 new enum
+5	AI Intelligence Layer	Not present	4 new models: SkillGap, Recommendation, CareerInsight, CareerRoadmap + 3 new enums	4 new models, 3 new enums
+6	StudentProfile model	Student data embedded in User	New StudentProfile with bio, skills[], education, preferredLocations[], preferredCategories[], linkedinUrl, githubUrl, portfolioUrl, expectedSalary	1 new model, student-specific data decoupled from User
+7	Updated relationships	See V1	All FK relationships updated for new models	Cascading deletes, new indexes
+8	Updated indexes	Basic indexes	Compound indexes, covering indexes for new models	Performance optimization
+9	Server Action vs API Route	Mixed responsibilities	Clear separation: Server Actions for all authenticated mutations; API Routes only for webhooks, cron, Vapi callbacks, and public read APIs	Cleaner architecture
+10	Everything else	V1 baseline	Unchanged	No regression
+Model Count
+V1	V2	Delta
+Models	9	19	+10
+Enums	6	13	+7
+2. Updated System Architecture
+High-Level Architecture V2
+Mermaid diagram
+Role-Based Architecture V2
+Mermaid diagram
+Company RBAC Permission Matrix
+Permission	OWNER	ADMIN	RECRUITER	INTERVIEWER	HR
+Company Settings	✅	❌	❌	❌	❌
+Manage Members	✅	✅	❌	❌	❌
+Post/Edit Jobs	✅	✅	✅	❌	❌
+Toggle Job Visibility	✅	✅	✅	❌	❌
+Post/Edit Experiences	✅	✅	✅	❌	❌
+View Applicants	✅	✅	✅	✅	✅
+Update Application Status	✅	✅	❌	❌	✅
+View Company Dashboard	✅	✅	✅	✅	✅
+Delete Company	✅	❌	❌	❌	❌
+3. Prisma Schema V2
+prisma
+
+// prisma/schema.prisma
+// AI Placement Copilot — Schema V2 (Final Baseline)
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+// ════════════════════════════════════════════════════════════════
+// ENUMS
+// ════════════════════════════════════════════════════════════════
+enum UserRole {
+  STUDENT
+  RECRUITER
+  ADMIN
+}
+enum CompanyRole {
+  OWNER
+  ADMIN
+  RECRUITER
+  INTERVIEWER
+  HR
+}
+enum JobLevel {
+  BEGINNER
+  INTERMEDIATE
+  SENIOR
+}
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  INTERNSHIP
+  CONTRACT
+  REMOTE
+}
+enum ApplicationStatus {
+  PENDING
+  REVIEWED
+  SHORTLISTED
+  INTERVIEW_SCHEDULED
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+enum InterviewType {
+  TECHNICAL
+  BEHAVIORAL
+  MIXED
+}
+enum InterviewStatus {
+  DRAFT
+  READY
+  IN_PROGRESS
+  COMPLETED
+}
+enum QuestionDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+enum RecommendationType {
+  JOB
+  SKILL
+  INTERVIEW
+  COURSE
+  EXPERIENCE
+}
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  APPLY
+  STATUS_CHANGE
+  UPLOAD
+  AI_GENERATE
+  EXPORT
+}
+enum AuditEntity {
+  USER
+  COMPANY
+  COMPANY_MEMBER
+  JOB
+  APPLICATION
+  INTERVIEW
+  FEEDBACK
+  RESUME
+  EXPERIENCE
+  SUBSCRIPTION
+  SKILL_GAP
+  RECOMMENDATION
+  CAREER_ROADMAP
+}
+enum InsightCategory {
+  MARKET_TREND
+  SALARY_INSIGHT
+  SKILL_DEMAND
+  CAREER_PATH
+  INDUSTRY_NEWS
+}
+// ════════════════════════════════════════════════════════════════
+// USER & AUTH (Synced via Clerk Webhooks)
+// ════════════════════════════════════════════════════════════════
+model User {
+  id              String    @id                  // Clerk user ID
+  email           String    @unique
+  firstName       String
+  lastName        String
+  imageUrl        String?
+  role            UserRole  @default(STUDENT)
+  onboardingDone  Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  // Student relations
+  studentProfile  StudentProfile?
+  resume          Resume?
+  applications    Application[]
+  interviews      Interview[]
+  feedbacks       Feedback[]
+  subscription    Subscription?
+  skillGaps       SkillGap[]
+  recommendations Recommendation[]
+  careerRoadmaps  CareerRoadmap[]
+  // Company relations (via CompanyMember join)
+  companyMemberships CompanyMember[]
+  // Audit trail
+  auditLogs       AuditLog[]
+  @@index([email])
+  @@index([role])
+}
+// ════════════════════════════════════════════════════════════════
+// STUDENT PROFILE (Decoupled student-specific data)
+// ════════════════════════════════════════════════════════════════
+model StudentProfile {
+  id                    String    @id @default(cuid())
+  bio                   String?   @db.Text
+  skills                String[]                          // ["React", "TypeScript", "Node.js"]
+  education             String?   @db.Text                // JSON string or free text
+  preferredLocations    String[]                          // ["Bangalore", "Remote"]
+  preferredCategories   String[]                          // ["Software Developer", "Data Science"]
+  expectedSalary        String?                           // "5-8 LPA"
+  linkedinUrl           String?
+  githubUrl             String?
+  portfolioUrl          String?
+  yearsOfExperience     Int?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  // Relations
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                String    @unique
+  @@index([skills], type: Gin)
+  @@index([preferredLocations], type: Gin)
+}
+// ════════════════════════════════════════════════════════════════
+// COMPANY (Recruiter Organization)
+// ════════════════════════════════════════════════════════════════
+model Company {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  logoUrl     String?                            // Cloudinary URL
+  website     String?
+  description String?  @db.Text
+  industry    String?
+  size        String?                            // "1-10", "11-50", "51-200", etc.
+  verified    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  // Relations
+  members     CompanyMember[]
+  jobs        Job[]
+  experiences Experience[]
+  @@index([name])
+  @@index([verified])
+}
+// ════════════════════════════════════════════════════════════════
+// COMPANY MEMBER (RBAC Join Table)
+// ════════════════════════════════════════════════════════════════
+model CompanyMember {
+  id        String      @id @default(cuid())
+  role      CompanyRole @default(RECRUITER)
+  joinedAt  DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  // Relations
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  company   Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+  @@unique([userId, companyId])              // One membership per user per company
+  @@index([companyId, role])                 // Find all recruiters in a company
+  @@index([userId])                          // Find all companies for a user
+}
+// ════════════════════════════════════════════════════════════════
+// RESUME (Student Resume + File Storage)
+// ════════════════════════════════════════════════════════════════
+model Resume {
+  id              String                          @id @default(cuid())
+  fileUrl         String                          // Cloudinary URL
+  fileName        String
+  extractedText   String?                         @db.Text
+  embedding       Unsupported("vector(768)")?     // pgvector: Gemini text-embedding-004
+  createdAt       DateTime                        @default(now())
+  updatedAt       DateTime                        @updatedAt
+  // Relations
+  user            User                            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String                          @unique
+  analysis        ResumeAnalysis?
+}
+// ════════════════════════════════════════════════════════════════
+// RESUME ANALYSIS (Structured AI Analysis — replaces aiAnalysis Json)
+// ════════════════════════════════════════════════════════════════
+model ResumeAnalysis {
+  id                String    @id @default(cuid())
+  overallScore      Int                               // 0-100
+  formatScore       Int                               // 0-100 (layout, readability, length)
+  contentScore      Int                               // 0-100 (relevance, depth, impact)
+  atsScore          Int                               // 0-100 (ATS-friendliness)
+  keywordsFound     String[]                          // Keywords matching industry standards
+  keywordsMissing   String[]                          // Recommended keywords not present
+  suggestions       String[]                          // Actionable improvement suggestions
+  sectionScores     Json                              // { "experience": 85, "education": 70, "skills": 90, ... }
+  strengths         String[]                          // Top strengths identified
+  weaknesses        String[]                          // Areas needing improvement
+  rawAnalysis       Json?                             // Full AI response for debugging/future use
+  analyzedAt        DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  // Relations
+  resume            Resume    @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  resumeId          String    @unique
+  @@index([overallScore])
+}
+// ════════════════════════════════════════════════════════════════
+// JOB LISTINGS
+// ════════════════════════════════════════════════════════════════
+model Job {
+  id            String                          @id @default(cuid())
+  title         String
+  description   String                          @db.Text      // HTML (rich text)
+  location      String
+  category      String
+  level         JobLevel
+  type          JobType                         @default(FULL_TIME)
+  salary        String?                         // "5-8 LPA" or "50,000 INR/month"
+  applyLink     String?                         // External application URL
+  isVisible     Boolean                         @default(true)
+  embedding     Unsupported("vector(768)")?     // pgvector: job title+description embedding
+  createdAt     DateTime                        @default(now())
+  updatedAt     DateTime                        @updatedAt
+  // Relations
+  company       Company                         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId     String
+  applications  Application[]
+  @@index([category])
+  @@index([level])
+  @@index([location])
+  @@index([isVisible])
+  @@index([createdAt(sort: Desc)])
+  @@index([companyId])
+}
+// ════════════════════════════════════════════════════════════════
+// JOB APPLICATIONS
+// ════════════════════════════════════════════════════════════════
+model Application {
+  id          String              @id @default(cuid())
+  status      ApplicationStatus   @default(PENDING)
+  appliedAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  notes       String?             @db.Text
+  // Relations
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  job         Job                 @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  jobId       String
+  @@unique([userId, jobId])                   // Prevent duplicate applications
+  @@index([status])
+  @@index([appliedAt(sort: Desc)])
+  @@index([userId, status])                   // Student's applications by status
+  @@index([jobId, status])                    // Job's applicants by status
+}
+// ════════════════════════════════════════════════════════════════
+// AI MOCK INTERVIEWS
+// ════════════════════════════════════════════════════════════════
+model Interview {
+  id            String            @id @default(cuid())
+  role          String                            // Target job role
+  type          InterviewType
+  level         JobLevel
+  techStack     String[]                          // Array of technologies
+  status        InterviewStatus   @default(DRAFT)
+  coverImage    String?                           // Random cover image path
+  transcript    String?           @db.Text        // Full interview transcript
+  duration      Int?                              // Duration in seconds
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  // Relations
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String
+  questions     InterviewQuestion[]               // ← V2: replaces String[]
+  feedback      Feedback?
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@index([userId, status])                       // User's interviews by status
+}
+// ════════════════════════════════════════════════════════════════
+// INTERVIEW QUESTIONS (V2: Replaces String[] on Interview)
+// ════════════════════════════════════════════════════════════════
+model InterviewQuestion {
+  id              String              @id @default(cuid())
+  questionText    String              @db.Text
+  topic           String?                               // "React Hooks", "System Design", etc.
+  difficulty      QuestionDifficulty  @default(MEDIUM)
+  orderIndex      Int                                   // Display order (0-based)
+  expectedAnswer  String?             @db.Text           // AI-generated ideal answer hint
+  createdAt       DateTime            @default(now())
+  // Relations
+  interview       Interview           @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  interviewId     String
+  @@index([interviewId, orderIndex])                    // Ordered questions for interview
+  @@index([topic])
+  @@index([difficulty])
+}
+// ════════════════════════════════════════════════════════════════
+// INTERVIEW FEEDBACK (AI-Generated)
+// ════════════════════════════════════════════════════════════════
+model Feedback {
+  id                    String    @id @default(cuid())
+  totalScore            Int                               // 0-100
+  categoryScores        Json                              // Array<{ name, score, comment }>
+  strengths             String[]
+  areasForImprovement   String[]
+  finalAssessment       String    @db.Text
+  questionsAnalysis     Json                              // Array<{ questionId, response, score, suggestion }>
+  createdAt             DateTime  @default(now())
+  // Relations
+  interview             Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  interviewId           String    @unique
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                String
+  @@index([userId])
+  @@index([totalScore])
+  @@index([userId, createdAt(sort: Desc)])               // User's feedback history
+}
+// ════════════════════════════════════════════════════════════════
+// PAST EXPERIENCES (Company-posted)
+// ════════════════════════════════════════════════════════════════
+model Experience {
+  id          String    @id @default(cuid())
+  title       String
+  description String    @db.Text
+  category    String
+  level       JobLevel
+  salary      String?
+  imageUrl    String?                             // Company/role image
+  isVisible   Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  // Relations
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId   String
+  @@index([category])
+  @@index([isVisible])
+  @@index([createdAt(sort: Desc)])
+  @@index([companyId])
+}
+// ════════════════════════════════════════════════════════════════
+// EMAIL SUBSCRIPTIONS
+// ════════════════════════════════════════════════════════════════
+model Subscription {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  isActive      Boolean   @default(true)
+  subscribedAt  DateTime  @default(now())
+  // Optional user link
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId        String?   @unique
+  @@index([isActive])
+}
+// ════════════════════════════════════════════════════════════════
+// AUDIT LOG (V2: New — Compliance & Debugging)
+// ════════════════════════════════════════════════════════════════
+model AuditLog {
+  id          String       @id @default(cuid())
+  action      AuditAction
+  entityType  AuditEntity
+  entityId    String                              // ID of the affected entity
+  metadata    Json?                               // Additional context (old value, new value, etc.)
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime     @default(now())
+  // Relations
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId      String?
+  @@index([entityType, entityId])                 // Find all logs for an entity
+  @@index([userId, createdAt(sort: Desc)])        // User's activity timeline
+  @@index([action])
+  @@index([createdAt(sort: Desc)])                // Global activity feed
+}
+// ════════════════════════════════════════════════════════════════
+// AI INTELLIGENCE LAYER — SKILL GAP ANALYSIS
+// ════════════════════════════════════════════════════════════════
+model SkillGap {
+  id                String    @id @default(cuid())
+  targetRole        String                            // Role the user aspires to
+  currentSkills     String[]                          // Skills user currently has
+  requiredSkills    String[]                          // Skills required for target role
+  missingSkills     String[]                          // Gap: required - current
+  proficiencyMap    Json                              // { "React": 80, "TypeScript": 60, ... }
+  matchPercentage   Int                               // 0-100 overall match
+  recommendations   String[]                          // Suggested learning resources
+  analyzedAt        DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  // Relations
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String
+  @@index([userId])
+  @@index([targetRole])
+  @@index([matchPercentage])
+  @@index([userId, analyzedAt(sort: Desc)])
+}
+// ════════════════════════════════════════════════════════════════
+// AI INTELLIGENCE LAYER — RECOMMENDATIONS
+// ════════════════════════════════════════════════════════════════
+model Recommendation {
+  id              String              @id @default(cuid())
+  type            RecommendationType
+  title           String
+  description     String              @db.Text
+  relevanceScore  Float                                 // 0.0-1.0 (AI confidence)
+  metadata        Json?                                 // Type-specific data (jobId, courseUrl, etc.)
+  isActioned      Boolean             @default(false)   // User clicked/followed
+  isDismissed     Boolean             @default(false)   // User dismissed
+  createdAt       DateTime            @default(now())
+  expiresAt       DateTime?                             // Optional TTL
+  // Relations
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  @@index([userId, type])
+  @@index([userId, isActioned, isDismissed])            // Active recommendations
+  @@index([relevanceScore(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+}
+// ════════════════════════════════════════════════════════════════
+// AI INTELLIGENCE LAYER — CAREER INSIGHTS
+// ════════════════════════════════════════════════════════════════
+model CareerInsight {
+  id            String           @id @default(cuid())
+  category      InsightCategory
+  title         String
+  content       String           @db.Text                // Markdown-formatted insight
+  dataPoints    Json?                                    // Supporting statistics/data
+  source        String?                                  // Where the insight was derived from
+  isPublished   Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  @@index([category])
+  @@index([isPublished, createdAt(sort: Desc)])
+}
+// ════════════════════════════════════════════════════════════════
+// AI INTELLIGENCE LAYER — CAREER ROADMAP
+// ════════════════════════════════════════════════════════════════
+model CareerRoadmap {
+  id              String    @id @default(cuid())
+  targetRole      String                              // "Senior Frontend Engineer"
+  currentLevel    JobLevel                            // User's current level
+  targetLevel     JobLevel                            // Desired level
+  timelineMonths  Int                                 // Estimated months to reach target
+  milestones      Json                                // Array<{ title, description, skills, month, completed }>
+  skillsToAcquire String[]                            // Skills needed along the way
+  resources       Json?                               // Array<{ title, url, type }> learning resources
+  progress        Int       @default(0)               // 0-100 completion percentage
+  isActive        Boolean   @default(true)
+  generatedAt     DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  @@index([userId, isActive])
+  @@index([targetRole])
+  @@index([userId, generatedAt(sort: Desc)])
+}
+pgvector Setup (Unchanged from V1)
+After running prisma migrate, manually execute:
+
+sql
+
+-- Enable the pgvector extension
+CREATE EXTENSION IF NOT EXISTS vector;
+-- Create vector similarity search indexes (IVFFlat for performance)
+CREATE INDEX idx_job_embedding ON "Job" USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+CREATE INDEX idx_resume_embedding ON "Resume" USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+4. ER Diagram V2
+Mermaid diagram
+5. Updated Folder Structure
+Changes from V1 are marked with # ← V2 NEW or # ← V2 CHANGED
+
+
+ai-placement-copilot/
+├── prisma/
+│   ├── schema.prisma                  # V2 Schema (19 models, 13 enums)     ← V2 CHANGED
+│   ├── migrations/
+│   └── seed.ts
+│
+├── src/
+│   ├── app/
+│   │   ├── layout.tsx
+│   │   ├── page.tsx
+│   │   ├── globals.css
+│   │   │
+│   │   ├── (auth)/
+│   │   │   ├── layout.tsx
+│   │   │   ├── sign-in/[[...sign-in]]/page.tsx
+│   │   │   └── sign-up/[[...sign-up]]/page.tsx
+│   │   │
+│   │   ├── (student)/
+│   │   │   ├── layout.tsx
+│   │   │   ├── dashboard/page.tsx
+│   │   │   ├── jobs/
+│   │   │   │   ├── page.tsx
+│   │   │   │   └── [id]/page.tsx
+│   │   │   ├── applications/page.tsx
+│   │   │   ├── interviews/
+│   │   │   │   ├── page.tsx
+│   │   │   │   ├── new/page.tsx
+│   │   │   │   └── [id]/
+│   │   │   │       ├── page.tsx
+│   │   │   │       └── feedback/page.tsx
+│   │   │   ├── resume/page.tsx
+│   │   │   ├── experiences/
+│   │   │   │   ├── page.tsx
+│   │   │   │   └── [id]/page.tsx
+│   │   │   ├── profile/page.tsx
+│   │   │   ├── skill-gap/page.tsx                # ← V2 NEW
+│   │   │   └── career/                           # ← V2 NEW
+│   │   │       ├── page.tsx                      # Career roadmap hub
+│   │   │       └── insights/page.tsx             # Career insights feed
+│   │   │
+│   │   ├── (recruiter)/
+│   │   │   ├── layout.tsx
+│   │   │   ├── dashboard/page.tsx
+│   │   │   ├── jobs/
+│   │   │   │   ├── page.tsx
+│   │   │   │   └── new/page.tsx
+│   │   │   ├── experiences/
+│   │   │   │   ├── page.tsx
+│   │   │   │   └── new/page.tsx
+│   │   │   ├── applicants/page.tsx
+│   │   │   └── team/page.tsx                     # ← V2 NEW (manage CompanyMembers)
+│   │   │
+│   │   ├── (admin)/
+│   │   │   ├── layout.tsx
+│   │   │   ├── dashboard/page.tsx
+│   │   │   └── audit-log/page.tsx                # ← V2 NEW (admin audit viewer)
+│   │   │
+│   │   └── api/
+│   │       ├── webhooks/clerk/route.ts
+│   │       ├── vapi/generate/route.ts
+│   │       ├── jobs/
+│   │       │   ├── route.ts                      # GET (public read)
+│   │       │   ├── [id]/route.ts                 # GET (public read)
+│   │       │   └── search/route.ts               # POST (semantic search)
+│   │       ├── experiences/
+│   │       │   ├── route.ts                      # GET (public read)
+│   │       │   └── [id]/route.ts                 # GET (public read)
+│   │       ├── subscribe/route.ts                # POST (public)
+│   │       ├── insights/route.ts                 # GET (public career insights)   ← V2 NEW
+│   │       └── cron/
+│   │           └── weekly-digest/route.ts        # Vercel Cron
+│   │
+│   ├── components/
+│   │   ├── ui/                                   # shadcn/ui primitives (unchanged)
+│   │   ├── layout/                               # (unchanged)
+│   │   ├── jobs/                                 # (unchanged)
+│   │   ├── interviews/
+│   │   │   ├── interview-agent.tsx
+│   │   │   ├── interview-card.tsx
+│   │   │   ├── interview-form.tsx
+│   │   │   ├── question-list.tsx                 # ← V2 NEW (displays InterviewQuestion[])
+│   │   │   ├── feedback-display.tsx
+│   │   │   ├── score-chart.tsx
+│   │   │   └── tech-icons.tsx
+│   │   ├── resume/
+│   │   │   ├── resume-upload.tsx
+│   │   │   ├── resume-analysis.tsx               # ← V2 CHANGED (uses ResumeAnalysis model)
+│   │   │   ├── resume-score.tsx
+│   │   │   └── ats-score-badge.tsx               # ← V2 NEW
+│   │   ├── experiences/                          # (unchanged)
+│   │   ├── career/                               # ← V2 NEW (entire directory)
+│   │   │   ├── skill-gap-chart.tsx
+│   │   │   ├── career-roadmap.tsx
+│   │   │   ├── roadmap-milestone.tsx
+│   │   │   ├── recommendation-card.tsx
+│   │   │   └── insight-card.tsx
+│   │   ├── company/                              # ← V2 NEW
+│   │   │   ├── team-member-list.tsx
+│   │   │   ├── invite-member-dialog.tsx
+│   │   │   └── role-badge.tsx
+│   │   └── shared/                               # (unchanged)
+│   │
+│   ├── lib/
+│   │   ├── db.ts
+│   │   ├── ai/
+│   │   │   ├── gemini.ts
+│   │   │   ├── embeddings.ts
+│   │   │   ├── interview-questions.ts
+│   │   │   ├── interview-feedback.ts
+│   │   │   ├── resume-analyzer.ts
+│   │   │   ├── skill-gap-analyzer.ts             # ← V2 NEW
+│   │   │   ├── career-roadmap-generator.ts       # ← V2 NEW
+│   │   │   └── recommendation-engine.ts          # ← V2 NEW
+│   │   ├── auth/                                 # ← V2 NEW (directory)
+│   │   │   ├── rbac.ts                           # CompanyRole permission checks
+│   │   │   └── helpers.ts                        # getCurrentUser, requireRole, etc.
+│   │   ├── audit.ts                              # ← V2 NEW (audit logging utility)
+│   │   ├── cloudinary.ts
+│   │   ├── vapi.ts
+│   │   ├── email.ts
+│   │   ├── utils.ts
+│   │   └── constants.ts
+│   │
+│   ├── actions/
+│   │   ├── jobs.ts                               # ← V2 CHANGED (uses RBAC checks)
+│   │   ├── applications.ts                       # ← V2 CHANGED (uses RBAC checks)
+│   │   ├── interviews.ts                         # ← V2 CHANGED (creates InterviewQuestion[])
+│   │   ├── feedback.ts                           # ← V2 CHANGED (references questionId)
+│   │   ├── resume.ts                             # ← V2 CHANGED (creates ResumeAnalysis)
+│   │   ├── experiences.ts                        # ← V2 CHANGED (uses RBAC checks)
+│   │   ├── user.ts                               # ← V2 CHANGED (creates StudentProfile)
+│   │   ├── subscribe.ts
+│   │   ├── company.ts                            # ← V2 NEW (company CRUD, member management)
+│   │   ├── skill-gap.ts                          # ← V2 NEW
+│   │   ├── career.ts                             # ← V2 NEW (roadmap + insights)
+│   │   ├── recommendations.ts                    # ← V2 NEW
+│   │   └── audit.ts                              # ← V2 NEW (query audit logs)
+│   │
+│   ├── hooks/
+│   │   ├── use-jobs.ts
+│   │   ├── use-interviews.ts
+│   │   ├── use-applications.ts
+│   │   ├── use-company-role.ts                   # ← V2 NEW
+│   │   └── use-debounce.ts
+│   │
+│   ├── types/
+│   │   ├── index.ts                              # ← V2 CHANGED (new model types)
+│   │   ├── vapi.ts
+│   │   └── ai.ts                                 # ← V2 CHANGED (skill-gap, career types)
+│   │
+│   ├── schemas/
+│   │   ├── job.ts
+│   │   ├── interview.ts                          # ← V2 CHANGED (InterviewQuestion schema)
+│   │   ├── feedback.ts
+│   │   ├── resume.ts                             # ← V2 CHANGED (ResumeAnalysis schema)
+│   │   ├── experience.ts
+│   │   ├── auth.ts
+│   │   ├── company.ts                            # ← V2 NEW
+│   │   ├── skill-gap.ts                          # ← V2 NEW
+│   │   ├── career.ts                             # ← V2 NEW
+│   │   └── student-profile.ts                    # ← V2 NEW
+│   │
+│   └── middleware.ts
+│
+├── public/
+│   ├── logos/
+│   ├── covers/
+│   └── icons/
+│
+├── .env.example
+├── next.config.ts
+├── tailwind.config.ts
+├── tsconfig.json
+├── components.json
+├── package.json
+├── vercel.json
+└── README.md
+New File Count Summary
+Category	V1 Files	V2 New Files	V2 Total
+Pages	22	5	27
+Components	28	10	38
+Actions	8	5	13
+Lib/AI	5	3	8
+Lib/Auth	0	2	2
+Lib/Other	0	1 (audit.ts)	1
+Schemas	6	4	10
+Hooks	4	1	5
+API Routes	9	1	10
+6. Updated API Design
+Architecture Principle (V2 — Clarified)
+Server Actions: All authenticated mutations and authenticated reads. Called from Client/Server Components.
+
+API Routes: Only for (1) webhook receivers, (2) cron jobs, (3) Vapi callbacks, (4) public unauthenticated reads, and (5) the semantic search endpoint which requires raw SQL.
+
+API Routes (External / Public Only)
+Endpoint	Method	Auth	Purpose	V1/V2
+/api/webhooks/clerk	POST	Svix signature	Sync Clerk user events to PostgreSQL	V1
+/api/vapi/generate	POST	Internal (Vapi callback)	Generate interview questions via Gemini	V1
+/api/jobs	GET	Public	List visible jobs (pagination, filters)	V1
+/api/jobs/[id]	GET	Public	Single job detail	V1
+/api/jobs/search	POST	Public/Student	Semantic search via pgvector raw SQL	V1
+/api/experiences	GET	Public	List visible experiences	V1
+/api/experiences/[id]	GET	Public	Single experience detail	V1
+/api/subscribe	POST	Public	Email subscription	V1
+/api/insights	GET	Public	Published career insights feed	V2 NEW
+/api/cron/weekly-digest	GET	Vercel Cron secret	Weekly job email to subscribers	V1
+Server Actions (Authenticated Mutations + Reads)
+Jobs (V2: RBAC-gated)
+Action	Auth	RBAC	Description
+createJob(data)	Recruiter	RECRUITER+	Create job listing + generate embedding
+updateJob(jobId, data)	Recruiter	RECRUITER+ (same company)	Update job fields
+toggleJobVisibility(jobId)	Recruiter	RECRUITER+ (same company)	Toggle visibility
+deleteJob(jobId)	Recruiter	ADMIN+ (same company)	Delete job
+getRecommendedJobs(userId)	Student	—	pgvector similarity against resume
+Applications (V2: RBAC-gated)
+Action	Auth	RBAC	Description
+applyForJob(jobId)	Student	—	Create application (duplicate check)
+getUserApplications()	Student	—	List user's applications
+updateApplicationStatus(appId, status)	Recruiter	HR+ (same company)	Update status
+getCompanyApplicants(companyId)	Recruiter	Any member	List all applicants for company
+Interviews (V2: InterviewQuestion model)
+Action	Auth	Description
+createInterview(role, type, level, techStack)	Student	Create interview + generate InterviewQuestion[] via Gemini
+getInterview(interviewId)	Student (owner)	Get interview with questions ordered by orderIndex
+saveTranscript(interviewId, transcript, duration)	Student (owner)	Save transcript + update status
+generateFeedback(interviewId)	Student (owner)	Gemini analysis → Feedback with questionId references
+getLatestInterviews(limit?)	Student	Browse community interviews
+getUserInterviews()	Student	List user's own interviews
+Resume (V2: ResumeAnalysis model)
+Action	Auth	Description
+uploadResume(formData)	Student	Cloudinary upload + text extraction + embedding
+analyzeResume(resumeId)	Student	Gemini analysis → ResumeAnalysis (structured)
+getResumeAnalysis(userId)	Student	Retrieve structured ResumeAnalysis
+Company & Team (V2: NEW)
+Action	Auth	RBAC	Description
+createCompany(data)	Recruiter	—	Create company + auto-assign OWNER
+updateCompany(companyId, data)	Recruiter	OWNER	Update company details
+deleteCompany(companyId)	Recruiter	OWNER	Delete company + cascade
+inviteMember(companyId, email, role)	Recruiter	ADMIN+	Add member to company
+updateMemberRole(memberId, role)	Recruiter	ADMIN+	Change member's role
+removeMember(memberId)	Recruiter	ADMIN+	Remove member
+getCompanyMembers(companyId)	Recruiter	Any member	List all members
+leaveCompany(companyId)	Recruiter	Non-OWNER	Self-removal
+Student Profile (V2: NEW)
+Action	Auth	Description
+createStudentProfile(data)	Student	Create/update student profile
+updateStudentProfile(data)	Student	Update profile fields
+getStudentProfile(userId?)	Student	Get profile (self or by ID)
+AI Intelligence Layer (V2: NEW)
+Action	Auth	Description
+analyzeSkillGap(targetRole)	Student	Gemini analyzes resume + profile → SkillGap
+getSkillGaps(userId)	Student	List past skill gap analyses
+generateCareerRoadmap(targetRole, targetLevel)	Student	Gemini creates personalized CareerRoadmap
+getCareerRoadmaps(userId)	Student	List user's roadmaps
+updateRoadmapProgress(roadmapId, milestoneUpdates)	Student	Mark milestones complete
+getRecommendations(userId)	Student	Fetch active AI recommendations
+actionRecommendation(recId)	Student	Mark as actioned
+dismissRecommendation(recId)	Student	Mark as dismissed
+refreshRecommendations(userId)	Student	Re-generate recommendations via Gemini
+Audit (V2: NEW)
+Action	Auth	Description
+getAuditLogs(filters)	Admin	Query audit logs with filters
+getUserAuditTrail(userId)	Admin	Activity timeline for a user
+AI Intelligence Layer Flow
+Mermaid diagram
+7. Updated Development Roadmap
+Phase 1: Foundation (Week 1-2) — Unchanged
+Project scaffolding, database, auth, and core infrastructure
+
+ Initialize Next.js 15 project with TypeScript
+ Configure Tailwind CSS + shadcn/ui component library
+ Set up Prisma with PostgreSQL + pgvector extension
+ Design and migrate the V2 schema (19 models)
+ Integrate Clerk authentication (sign-in, sign-up, middleware)
+ Implement Clerk webhook handler (user.created, user.updated, user.deleted)
+ Set up Cloudinary configuration
+ Set up Resend email client
+ Create shared layout components (Navbar, Sidebar, Footer)
+ Implement role-based route protection via middleware
+ Create base UI components (Loading, EmptyState, Pagination)
+ Set up environment variables and .env.example
+ V2: Set up audit logging utility (lib/audit.ts)
+Phase 2: Company & Team Management (Week 3) — V2 NEW PHASE
+Company RBAC system — must exist before job posting
+
+ Company CRUD:
+ Create company flow (onboarding for Recruiters)
+ Company profile page (edit details, logo upload)
+ Auto-assign OWNER role on company creation
+ Team RBAC:
+ CompanyMember management (invite, update role, remove)
+ RBAC permission checker utility (lib/auth/rbac.ts)
+ Team management page (/recruiter/team)
+ Role badge component
+ Invite member dialog
+ Student Profile:
+ StudentProfile creation during student onboarding
+ Profile editor page (/student/profile)
+ Skills, preferences, links fields
+Phase 3: Job Portal Core (Week 4-5) — V2 CHANGED (RBAC-gated)
+Job listings, applications, and recruiter dashboard
+
+ Recruiter Features (RBAC-gated):
+ Job creation form with rich text editor (RECRUITER+ permission)
+ Embedding generation on job creation
+ Job management dashboard (RECRUITER+ can edit, ADMIN+ can delete)
+ View applicants page (all company members)
+ Update application status (HR+ permission)
+ Student Features:
+ Job listing page with filters
+ Job search bar (keyword search)
+ Job detail page
+ Apply for job flow (with duplicate check)
+ Application tracking page (status badges)
+ Shared:
+ Job card component
+ Experience CRUD (RECRUITER+ post, student browse)
+ Experience listing + detail pages
+ Audit Integration:
+ Log all job CRUD, application status changes
+Phase 4: AI Features — Resume (Week 6-7) — V2 CHANGED (ResumeAnalysis model)
+Resume upload, parsing, embedding, structured analysis, and semantic matching
+
+ Resume upload flow (PDF → Cloudinary)
+ Client-side PDF text extraction
+ Server-side embedding generation (Gemini → pgvector)
+ V2: Structured AI resume analysis → ResumeAnalysis model:
+overallScore, formatScore, contentScore, atsScore
+keywordsFound[], keywordsMissing[]
+suggestions[], strengths[], weaknesses[]
+sectionScores JSON
+rawAnalysis JSON (debug/future use)
+ Resume analysis display (charts, ATS score badge, section scores)
+ Semantic job matching (pgvector cosine similarity)
+ Recommended jobs section on student dashboard
+ Semantic search endpoint (/api/jobs/search)
+Phase 5: AI Features — Interview (Week 8-9) — V2 CHANGED (InterviewQuestion model)
+Voice AI interviews and structured feedback
+
+ Vapi SDK integration and configuration
+ Interview creation flow (role, type, level, tech stack)
+ V2: Gemini question generation → creates InterviewQuestion[] with:
+questionText, topic, difficulty, orderIndex, expectedAnswer
+ Interview agent component (Vapi voice call)
+Call lifecycle (INACTIVE → CONNECTING → ACTIVE → FINISHED)
+V2: Question list component displays questions with topics + difficulty badges
+Real-time transcript display
+ Transcript + duration saving on call end
+ V2: AI feedback generation → Feedback.questionsAnalysis references questionId
+5-category scoring
+Per-question analysis with questionId links
+Overall assessment
+ Feedback display page
+ Interview history page
+ Browse community interviews
+Phase 6: AI Intelligence Layer (Week 10-11) — V2 NEW PHASE
+Skill gap analysis, career roadmaps, recommendations, career insights
+
+ Skill Gap Analysis:
+ analyzeSkillGap(targetRole) server action
+ Gemini prompt: compare profile+resume vs. market requirements
+ Skill gap visualization (radar chart, proficiency map)
+ /student/skill-gap page
+ Career Roadmap:
+ generateCareerRoadmap() server action
+ Gemini prompt: personalized milestone plan with resources
+ Roadmap display with milestone tracker
+ Progress tracking (mark milestones complete)
+ /student/career page
+ Recommendation Engine:
+ refreshRecommendations() — context-aware AI recommendations
+ Recommendation cards on student dashboard
+ Action/dismiss tracking
+ 5 types: JOB, SKILL, INTERVIEW, COURSE, EXPERIENCE
+ Career Insights:
+ Seed initial insights (market trends, salary data, skill demand)
+ Public API: /api/insights
+ Insights feed page: /student/career/insights
+Phase 7: Email, Notifications & Dashboard (Week 12) — V2 MERGED
+Email system + unified dashboards
+
+ Email subscription flow (subscribe/unsubscribe)
+ Weekly job digest email (Vercel Cron)
+ Application status change notifications
+ Student Dashboard:
+Overview cards (applications, interviews, resume score, skill match %)
+AI recommendations carousel
+Career roadmap progress
+Recent applications + interview scores
+Quick actions
+ Recruiter Dashboard:
+Stats cards (jobs, applicants, active listings, team size)
+Recent applicants
+Team member list
+ Admin Dashboard:
+Platform analytics
+Audit log viewer (/admin/audit-log)
+Content moderation
+Phase 8: Production Hardening (Week 13-14) — Unchanged + Audit
+Security, performance, monitoring, and deployment
+
+ Input validation on all server actions and API routes (Zod)
+ Rate limiting on public endpoints
+ CSRF protection
+ Content Security Policy headers
+ Sentry integration
+ Database query optimization (indexes review for V2 models)
+ Image optimization (next/image + Cloudinary)
+ Bundle size analysis and code splitting
+ Accessibility audit (WCAG 2.1 AA)
+ E2E test suite (Playwright)
+ CI/CD pipeline (GitHub Actions → Vercel)
+ V2: Audit log retention policy (auto-cleanup > 90 days)
+ V2: RBAC integration tests (permission matrix coverage)
+ Production deployment checklist
+ Documentation
+8. Migration Notes (V1 → V2)
+Schema Changes
+Removed from V1
+Model/Field	V1 Location	Reason
+User.companyId	User model	Replaced by CompanyMember join table
+User.companyMember relation	User model	Replaced by User.companyMemberships → CompanyMember[]
+Company.owner / Company.ownerId	Company model	Replaced by CompanyMember with role: OWNER
+Company.members relation	Company model	Replaced by Company.members → CompanyMember[]
+Interview.questions String[]	Interview model	Replaced by InterviewQuestion model relation
+Resume.aiAnalysis Json?	Resume model	Replaced by ResumeAnalysis model
+Resume.score Int?	Resume model	Moved to ResumeAnalysis.overallScore
+Added in V2
+New Model	Fields	Purpose
+StudentProfile	bio, skills[], education, preferredLocations[], preferredCategories[], linkedinUrl, githubUrl, portfolioUrl, expectedSalary, yearsOfExperience	Decoupled student-specific data
+CompanyMember	userId, companyId, role (CompanyRole)	RBAC join table for company access
+InterviewQuestion	questionText, topic, difficulty, orderIndex, expectedAnswer, interviewId	Structured interview questions
+ResumeAnalysis	overallScore, formatScore, contentScore, atsScore, keywordsFound[], keywordsMissing[], suggestions[], sectionScores, strengths[], weaknesses[], rawAnalysis	Structured AI analysis
+AuditLog	action, entityType, entityId, metadata, ipAddress, userAgent, userId	Compliance & debugging
+SkillGap	targetRole, currentSkills[], requiredSkills[], missingSkills[], proficiencyMap, matchPercentage, recommendations[]	AI skill gap analysis
+Recommendation	type, title, description, relevanceScore, metadata, isActioned, isDismissed, expiresAt	AI recommendations
+CareerInsight	category, title, content, dataPoints, source, isPublished	Market intelligence
+CareerRoadmap	targetRole, currentLevel, targetLevel, timelineMonths, milestones, skillsToAcquire[], resources, progress, isActive	Personalized career plan
+New Enums
+Enum	Values	Used By
+CompanyRole	OWNER, ADMIN, RECRUITER, INTERVIEWER, HR	CompanyMember.role
+QuestionDifficulty	EASY, MEDIUM, HARD	InterviewQuestion.difficulty
+RecommendationType	JOB, SKILL, INTERVIEW, COURSE, EXPERIENCE	Recommendation.type
+AuditAction	CREATE, UPDATE, DELETE, LOGIN, LOGOUT, APPLY, STATUS_CHANGE, UPLOAD, AI_GENERATE, EXPORT	AuditLog.action
+AuditEntity	USER, COMPANY, COMPANY_MEMBER, JOB, APPLICATION, INTERVIEW, FEEDBACK, RESUME, EXPERIENCE, SUBSCRIPTION, SKILL_GAP, RECOMMENDATION, CAREER_ROADMAP	AuditLog.entityType
+InsightCategory	MARKET_TREND, SALARY_INSIGHT, SKILL_DEMAND, CAREER_PATH, INDUSTRY_NEWS	CareerInsight.category
+Changed Indexes
+Model	New Index	Purpose
+CompanyMember	@@unique([userId, companyId])	One membership per user per company
+CompanyMember	@@index([companyId, role])	Lookup members by company+role
+Application	@@index([userId, status])	Student's filtered applications
+Application	@@index([jobId, status])	Job's applicants by status
+Interview	@@index([userId, status])	User's filtered interviews
+InterviewQuestion	@@index([interviewId, orderIndex])	Ordered questions
+Feedback	@@index([userId, createdAt])	Feedback history
+AuditLog	@@index([entityType, entityId])	Entity audit trail
+AuditLog	@@index([userId, createdAt])	User activity
+SkillGap	@@index([userId, analyzedAt])	Latest analysis
+Recommendation	@@index([userId, isActioned, isDismissed])	Active recommendations
+CareerRoadmap	@@index([userId, isActive])	Active roadmaps
+StudentProfile	@@index([skills], type: Gin)	Array search on skills
+Relationship Changes
+Mermaid diagram
+IMPORTANT
+
+Breaking Changes from V1
+
+User.companyId and User.companyMember are removed. All company membership is through CompanyMember.
+Company.ownerId and Company.owner are removed. The owner is the CompanyMember with role: OWNER.
+Interview.questions (String[]) is removed. Use Interview.questions → InterviewQuestion[] relation.
+Resume.aiAnalysis and Resume.score are removed. Use Resume.analysis → ResumeAnalysis relation.
+All recruiter server actions now require RBAC checks via lib/auth/rbac.ts.
+NOTE
+
+Unchanged from V1
+
+Technology stack (Next.js 15, TypeScript, Prisma, PostgreSQL, Clerk, Gemini, Cloudinary, pgvector)
+Tailwind CSS + shadcn/ui
+Environment variables
+Clerk auth flow + webhook handler
+Vapi AI voice interview integration
+pgvector setup and semantic search flow
+Resend email + Vercel Cron for weekly digest
+Core models: Job, Application, Feedback, Experience, Subscription (fields unchanged)
+All V1 API routes remain (1 new route added: /api/insights)
+CAUTION
+
+This is the FINAL architecture baseline. All implementation work must conform to this V2 document. Any further schema or architectural changes require a V3 revision and approval before implementation.
+
+Environment Variables (Unchanged from V1)
+env
+
+# Database
+DATABASE_URL="postgresql://user:password@host:5432/ai_placement_copilot?schema=public"
+# Clerk
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
+CLERK_SECRET_KEY=sk_...
+CLERK_WEBHOOK_SECRET=whsec_...
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+# Google Gemini
+GOOGLE_GENERATIVE_AI_API_KEY=...
+# Vapi AI
+NEXT_PUBLIC_VAPI_WEB_TOKEN=...
+NEXT_PUBLIC_VAPI_WORKFLOW_ID=...
+# Cloudinary
+CLOUDINARY_CLOUD_NAME=...
+CLOUDINARY_API_KEY=...
+CLOUDINARY_API_SECRET=...
+# Resend (Email)
+RESEND_API_KEY=re_...
+# Vercel Cron
+CRON_SECRET=...
+

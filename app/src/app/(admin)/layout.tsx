@@ -43,7 +43,7 @@ export default async function AdminLayout({
                 <Link href="/admin/audit-log" className="hover:text-foreground transition-colors">Audit Log</Link>
               </nav>
             </div>
-            <UserButton afterSignOutUrl="/" />
+            <UserButton />
           </div>
         </header>
         <main className="container mx-auto px-6 py-8">{children}</main>

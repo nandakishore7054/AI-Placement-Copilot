@@ -11,14 +11,14 @@ export const google = createGoogleGenerativeAI({
 });
 
 /**
- * The primary text generation model — Gemini 2.0 Flash.
- * Used for: question generation, feedback analysis, skill gap analysis, roadmap generation.
+ * The primary text generation model — Gemini 3.6 Flash.
+ * Used for: resume analysis, question generation, feedback analysis, skill gap analysis, roadmap generation.
  */
-export const geminiFlash = google("gemini-2.0-flash-001");
+export const geminiFlash = google("gemini-3.6-flash");
 
 /**
- * The embedding model — text-embedding-004.
- * Used for: job embeddings, resume embeddings (via raw API call).
+ * The embedding model — gemini-embedding-001 (768-dim output).
+ * Used for: job embeddings, resume embeddings, semantic similarity search.
  */
-export const EMBEDDING_MODEL = "text-embedding-004";
+export const EMBEDDING_MODEL = "gemini-embedding-001";
 export const EMBEDDING_DIMENSIONS = 768;

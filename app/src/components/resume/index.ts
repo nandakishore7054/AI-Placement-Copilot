@@ -1,5 +1,7 @@
-// src/components/resume/index.ts
-// Resume components: ResumeUpload, ResumeAnalysis, ResumeScore, AtsScorebadge
-// Phase 1: directory placeholder — implemented in Phase 4
-
-export {};
+export * from "./resume-uploader";
+export * from "./resume-viewer";
+export * from "./delete-resume-dialog";
+export * from "./ats-score-badge";
+export * from "./analyze-resume-button";
+export * from "./resume-score-breakdown";
+export * from "./resume-analysis-view";

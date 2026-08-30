@@ -1,5 +1,7 @@
 // src/components/interviews/index.ts
-// Interview components: InterviewAgent, InterviewCard, QuestionList, FeedbackDisplay
-// Phase 1: directory placeholder — implemented in Phase 5
-
-export {};
+export { InterviewCard } from "./interview-card";
+export type { InterviewCardData } from "./interview-card";
+export { QuestionList } from "./question-list";
+export type { InterviewQuestionItem } from "./question-list";
+export { CreateInterviewForm } from "./create-interview-form";
+export { InterviewAgent } from "./interview-agent";

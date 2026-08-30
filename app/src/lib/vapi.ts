@@ -7,7 +7,7 @@ let vapiInstance: Vapi | null = null;
 
 /**
  * Returns the singleton Vapi instance.
- * Creates it on first call using the public web token.
+ * Initializes it using the public web token.
  * Only call this in Client Components (browser environment).
  */
 export function getVapiClient(): Vapi {
@@ -23,9 +23,23 @@ export function getVapiClient(): Vapi {
   return vapiInstance;
 }
 
-// ─── Vapi Constants ───────────────────────────────────────────────────────────
+// ─── Vapi Constants & Environment ─────────────────────────────────────────────
 
-export const VAPI_WORKFLOW_ID = process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID ?? "";
+export const VAPI_ASSISTANT_ID = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID ?? "";
+
+/**
+ * Standard UUID regex (v4 / standard 8-4-4-4-12 hex format)
+ */
+export const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Validates whether a given string is a valid UUID format expected by Vapi.
+ */
+export function isValidUuid(id: string | null | undefined): boolean {
+  if (!id || typeof id !== "string") return false;
+  return UUID_REGEX.test(id.trim());
+}
 
 /** Vapi call status states */
 export type VapiCallStatus =

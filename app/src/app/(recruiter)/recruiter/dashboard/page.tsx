@@ -51,6 +51,13 @@ export default async function RecruiterDashboardPage() {
   const memberships = user.companyMemberships;
   const primaryCompany = memberships[0]?.company ?? null;
 
+  let totalApplications = 0;
+  if (primaryCompany) {
+    totalApplications = await db.application.count({
+      where: { job: { companyId: primaryCompany.id } },
+    });
+  }
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -85,7 +92,7 @@ export default async function RecruiterDashboardPage() {
           <StatCard
             icon={<TrendingUp className="h-5 w-5 text-emerald-500" />}
             label="Total Applications"
-            value="—"
+            value={totalApplications}
             href="/recruiter/applicants"
             cta="View Applicants"
             color="emerald"

@@ -12,6 +12,7 @@ import {
   Star,
 } from "lucide-react";
 import type { Metadata } from "next";
+import { RecommendedJobsSection } from "@/components/jobs/recommended-jobs-section";
 
 export const dynamic = "force-dynamic";
 
@@ -137,6 +138,9 @@ export default async function DashboardPage() {
           color="emerald"
         />
       </div>
+
+      {/* Recommended Jobs via pgvector semantic matching */}
+      <RecommendedJobsSection limit={6} />
 
       {/* Profile Summary */}
       {profile && (

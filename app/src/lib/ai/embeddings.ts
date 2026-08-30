@@ -1,3 +1,4 @@
+import { db } from "@/lib/db";
 import { EMBEDDING_MODEL, EMBEDDING_DIMENSIONS } from "./gemini";
 
 // ─── Embedding Generation ─────────────────────────────────────────────────────
@@ -7,7 +8,7 @@ import { EMBEDDING_MODEL, EMBEDDING_DIMENSIONS } from "./gemini";
  * Returns a float array of dimension 768.
  *
  * Used for:
- * - Job embeddings (title + description)
+ * - Job embeddings (title + description + category + metadata)
  * - Resume embeddings (extracted text)
  * - Query embeddings (semantic search)
  */
@@ -23,6 +24,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
       body: JSON.stringify({
         model: `models/${EMBEDDING_MODEL}`,
         content: { parts: [{ text: text.slice(0, 8192) }] }, // Model token limit
+        outputDimensionality: EMBEDDING_DIMENSIONS,
       }),
     },
   );
@@ -65,6 +67,51 @@ export async function generateJobEmbedding(
 }
 
 /**
+ * Generates and stores the vector embedding for a Job record in PostgreSQL pgvector.
+ * Safely catches errors to ensure non-blocking fallback if AI API is unavailable.
+ */
+export async function saveJobEmbedding(
+  jobId: string,
+  data: {
+    title: string;
+    description: string;
+    category?: string;
+    level?: string;
+    location?: string;
+    type?: string;
+  },
+): Promise<boolean> {
+  try {
+    const cleanDescription = data.description.replace(/<[^>]*>?/gm, " ").trim();
+    const parts: string[] = [
+      `Job Title: ${data.title}`,
+      data.category ? `Category: ${data.category}` : "",
+      data.level ? `Experience Level: ${data.level}` : "",
+      data.location ? `Location: ${data.location}` : "",
+      data.type ? `Job Type: ${data.type}` : "",
+      `Description: ${cleanDescription}`,
+    ].filter(Boolean);
+
+    const text = parts.join("\n");
+    const embedding = await generateEmbedding(text);
+    const vectorLiteral = formatEmbeddingForDb(embedding);
+
+    await db.$executeRaw`
+      UPDATE "Job"
+      SET embedding = ${vectorLiteral}::vector
+      WHERE id = ${jobId}
+    `;
+    return true;
+  } catch (error) {
+    console.error(
+      `[saveJobEmbedding] Could not generate/save embedding for Job (${jobId}):`,
+      error instanceof Error ? error.message : error
+    );
+    return false;
+  }
+}
+
+/**
  * Generates an embedding for a resume's extracted text.
  */
 export async function generateResumeEmbedding(
@@ -72,3 +119,34 @@ export async function generateResumeEmbedding(
 ): Promise<number[]> {
   return generateEmbedding(extractedText);
 }
+
+/**
+ * Generates and stores the vector embedding for a Resume record in PostgreSQL pgvector.
+ * Safely catches errors to ensure non-blocking fallback if AI API is unavailable.
+ */
+export async function saveResumeEmbedding(
+  resumeId: string,
+  extractedText: string,
+): Promise<boolean> {
+  try {
+    const cleanText = extractedText.slice(0, 8192).trim();
+    if (!cleanText) return false;
+
+    const embedding = await generateResumeEmbedding(cleanText);
+    const vectorLiteral = formatEmbeddingForDb(embedding);
+
+    await db.$executeRaw`
+      UPDATE "Resume"
+      SET embedding = ${vectorLiteral}::vector
+      WHERE id = ${resumeId}
+    `;
+    return true;
+  } catch (error) {
+    console.error(
+      `[saveResumeEmbedding] Could not generate/save embedding for Resume (${resumeId}):`,
+      error instanceof Error ? error.message : error
+    );
+    return false;
+  }
+}
+

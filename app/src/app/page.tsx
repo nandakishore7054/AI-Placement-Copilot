@@ -1,12 +1,18 @@
-import Link from "next/link";
-import { ClerkProvider, SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+"use client";
 
-export const dynamic = "force-dynamic";
+import Link from "next/link";
+import {
+  ClerkProvider,
+  SignInButton,
+  SignUpButton,
+  SignedIn,
+  SignedOut,
+  UserButton,
+} from "@clerk/nextjs";
 
 export default function LandingPage() {
   return (
     <ClerkProvider>
-
       {/* Navigation */}
       <nav className="container mx-auto flex items-center justify-between px-6 py-6">
         <div className="flex items-center gap-2">
@@ -17,16 +23,8 @@ export default function LandingPage() {
         </div>
         <div className="flex items-center gap-4">
           <SignedOut>
-            <SignInButton mode="modal">
-              <button className="text-sm text-slate-300 hover:text-white transition-colors">
-                Sign In
-              </button>
-            </SignInButton>
-            <SignUpButton mode="modal">
-              <button className="text-sm bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg font-medium transition-colors">
-                Get Started
-              </button>
-            </SignUpButton>
+            <SignInButton mode="modal"><button className="text-sm text-slate-300 hover:text-white transition-colors">Sign In</button></SignInButton>
+            <SignUpButton mode="modal"><button className="text-sm bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg font-medium transition-colors">Get Started</button></SignUpButton>
           </SignedOut>
           <SignedIn>
             <Link
@@ -35,7 +33,7 @@ export default function LandingPage() {
             >
               Dashboard
             </Link>
-            <UserButton afterSignOutUrl="/" />
+            <UserButton />
           </SignedIn>
         </div>
       </nav>
@@ -60,11 +58,7 @@ export default function LandingPage() {
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <SignedOut>
-            <SignUpButton mode="modal">
-              <button className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-semibold text-lg transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-indigo-500/25">
-                Start For Free →
-              </button>
-            </SignUpButton>
+            <SignUpButton mode="modal"><button className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-semibold text-lg transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-indigo-500/25">Start For Free →</button></SignUpButton>
           </SignedOut>
           <SignedIn>
             <Link

@@ -1,9 +1,6 @@
 import { v2 as cloudinary } from "cloudinary";
 
 // ─── Lazy Cloudinary Configuration ───────────────────────────────────────────
-// cloudinary.config() is safe with undefined values (it won't throw),
-// but we still move it inside a getter to follow the same build-safe pattern
-// as email.ts and ensure configuration is validated at runtime only.
 
 let _configured = false;
 
@@ -22,17 +19,17 @@ function getCloudinary() {
 
 // ─── Upload Helpers ───────────────────────────────────────────────────────────
 
-interface UploadResult {
+export interface UploadResult {
   url: string;
   publicId: string;
 }
 
 /**
- * Uploads a file buffer or base64 string to Cloudinary.
+ * Uploads a file buffer, Uint8Array, or base64 string to Cloudinary.
  * Returns the secure URL and public ID.
  */
 export async function uploadToCloudinary(
-  file: Buffer | string,
+  file: Buffer | Uint8Array | string,
   options: {
     folder: string;
     publicId?: string;
@@ -43,6 +40,21 @@ export async function uploadToCloudinary(
   const cld = getCloudinary();
 
   return new Promise((resolve, reject) => {
+    if (typeof file === "string" && file.startsWith("data:")) {
+      // base64 data URL — use direct upload API
+      cld.uploader
+        .upload(file, {
+          folder: options.folder,
+          public_id: options.publicId,
+          resource_type: options.resourceType ?? "auto",
+        })
+        .then((result) => {
+          resolve({ url: result.secure_url, publicId: result.public_id });
+        })
+        .catch(reject);
+      return;
+    }
+
     const uploadStream = cld.uploader.upload_stream(
       {
         folder: options.folder,
@@ -62,21 +74,8 @@ export async function uploadToCloudinary(
       },
     );
 
-    if (Buffer.isBuffer(file)) {
-      uploadStream.end(file);
-    } else {
-      // base64 data URL — use direct upload API
-      cld.uploader
-        .upload(file, {
-          folder: options.folder,
-          public_id: options.publicId,
-          resource_type: options.resourceType ?? "auto",
-        })
-        .then((result) => {
-          resolve({ url: result.secure_url, publicId: result.public_id });
-        })
-        .catch(reject);
-    }
+    const buf = typeof file === "string" ? Buffer.from(file) : Buffer.from(file);
+    uploadStream.end(buf);
   });
 }
 
@@ -84,7 +83,7 @@ export async function uploadToCloudinary(
  * Uploads a company logo to the `logos/` Cloudinary folder.
  */
 export async function uploadCompanyLogo(
-  file: Buffer | string,
+  file: Buffer | Uint8Array | string,
   companyId: string,
 ): Promise<UploadResult> {
   return uploadToCloudinary(file, {
@@ -102,7 +101,7 @@ export async function uploadCompanyLogo(
  * Uploads a user resume PDF to the `resumes/` Cloudinary folder.
  */
 export async function uploadResumePdf(
-  file: Buffer | string,
+  file: Buffer | Uint8Array | string,
   userId: string,
 ): Promise<UploadResult> {
   return uploadToCloudinary(file, {

@@ -1,5 +1,5 @@
-// src/components/experiences/index.ts
-// Experience components: ExperienceCard, ExperienceForm
-// Phase 1: directory placeholder — implemented in Phase 3
-
-export {};
+export * from "./experience-card";
+export * from "./experience-filters";
+export * from "./experience-form";
+export * from "./experience-status-toggle";
+export * from "./delete-experience-dialog";
