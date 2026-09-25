@@ -14,7 +14,11 @@ import {
   Radio,
 } from "lucide-react";
 import { getInterview } from "@/actions/interviews";
-import { QuestionList, InterviewAgent } from "@/components/interviews";
+import {
+  QuestionList,
+  InterviewAgent,
+  GenerateFeedbackButton,
+} from "@/components/interviews";
 import { formatDate, timeAgo, cn } from "@/lib/utils";
 import { InterviewStatus } from "@prisma/client";
 
@@ -60,6 +64,10 @@ export default async function InterviewDetailPage({
   }
 
   const isCompleted = interview.status === InterviewStatus.COMPLETED;
+  const hasTranscript = Boolean(
+    interview.transcript && interview.transcript.trim().length >= 20,
+  );
+  const feedback = interview.feedback;
 
   const statusConfig = {
     [InterviewStatus.READY]: {
@@ -173,6 +181,56 @@ export default async function InterviewDetailPage({
           </div>
         )}
       </div>
+
+      {/* ─── Feedback Callout Banner ──────────────────────────────────────── */}
+      {feedback ? (
+        <div className="rounded-3xl border border-indigo-200 bg-linear-to-r from-indigo-50/80 via-indigo-50/40 to-background p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shrink-0 shadow-xs">
+              <Award className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-base text-foreground">
+                  AI Evaluation Report Ready
+                </h3>
+                <span className="rounded-full bg-indigo-100 border border-indigo-200 px-2.5 py-0.5 text-xs font-bold text-indigo-700">
+                  Score: {feedback.totalScore}/100
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                5-category assessment, question-by-question scoring, and actionable feedback available.
+              </p>
+            </div>
+          </div>
+
+          <Link
+            href={`/interviews/${interview.id}/feedback`}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 transition-all shadow-xs shrink-0 cursor-pointer"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            View AI Feedback
+          </Link>
+        </div>
+      ) : hasTranscript ? (
+        <div className="rounded-3xl border border-emerald-200 bg-emerald-50/40 p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white shrink-0 shadow-xs">
+              <Sparkles className="h-6 w-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-foreground">
+                Interview Completed & Recorded
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Generate your Gemini AI performance evaluation to unlock category scores and tips.
+              </p>
+            </div>
+          </div>
+
+          <GenerateFeedbackButton interviewId={interview.id} />
+        </div>
+      ) : null}
 
       {/* ─── Live Voice AI Interview Agent ───────────────────────────────── */}
       <InterviewAgent

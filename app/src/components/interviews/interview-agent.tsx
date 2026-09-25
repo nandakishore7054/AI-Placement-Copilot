@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import Link from "next/link";
 import {
   Mic,
   MicOff,
@@ -522,15 +523,25 @@ export function InterviewAgent({
             )}
 
             {callStatus === "FINISHED" && (
-              <button
-                type="button"
-                onClick={startCall}
-                disabled={isSaving}
-                className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 transition-colors cursor-pointer"
-              >
-                <Mic className="h-3.5 w-3.5" />
-                Practice Again
-              </button>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/interviews/${interviewId}/feedback`}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition-colors shadow-xs cursor-pointer"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  View AI Feedback
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={startCall}
+                  disabled={isSaving}
+                  className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 transition-colors cursor-pointer"
+                >
+                  <Mic className="h-3.5 w-3.5" />
+                  Practice Again
+                </button>
+              </div>
             )}
           </div>
         </div>

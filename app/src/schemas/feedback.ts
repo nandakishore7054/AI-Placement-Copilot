@@ -1,25 +1,47 @@
 import { z } from "zod";
 
-export const FeedbackCategoryScoreSchema = z.object({
-  name: z.string(),
-  score: z.number().min(0).max(100),
-  comment: z.string(),
+// ─── Feedback AI Generation Schemas ──────────────────────────────────────────
+
+export const CategoryScoreSchema = z.object({
+  name: z.string().describe("Dimension name: e.g. Technical Correctness, Communication & Articulation, Problem Solving, Confidence & Composure, Clarity & Structured Delivery"),
+  score: z.number().int().min(0).max(100).describe("Score out of 100"),
+  comment: z.string().describe("Specific feedback explaining the score for this category based on transcript evidence"),
 });
 
 export const QuestionAnalysisSchema = z.object({
-  questionId: z.string(),
-  response: z.string(),
-  score: z.number().min(0).max(100),
-  suggestion: z.string(),
+  questionId: z.string().describe("The exact ID of the InterviewQuestion being analyzed"),
+  response: z.string().describe("Summary or direct excerpt of how the candidate answered this question"),
+  score: z.number().int().min(0).max(100).describe("Score out of 100 for this specific answer"),
+  suggestion: z.string().describe("Actionable advice on how the candidate could improve their answer to this question"),
 });
 
-export const FeedbackSchema = z.object({
-  totalScore: z.number().min(0).max(100),
-  categoryScores: z.array(FeedbackCategoryScoreSchema).length(5),
-  strengths: z.array(z.string()).min(1).max(5),
-  areasForImprovement: z.array(z.string()).min(1).max(5),
-  finalAssessment: z.string().min(10),
-  questionsAnalysis: z.array(QuestionAnalysisSchema),
+export const InterviewFeedbackAiResponseSchema = z.object({
+  totalScore: z.number().int().min(0).max(100).describe("Overall interview performance score out of 100"),
+  categoryScores: z
+    .array(CategoryScoreSchema)
+    .length(5)
+    .describe("Exactly 5 core assessment dimensions"),
+  strengths: z
+    .array(z.string())
+    .min(2)
+    .max(8)
+    .describe("Key candidate strengths demonstrated in the interview"),
+  areasForImprovement: z
+    .array(z.string())
+    .min(2)
+    .max(8)
+    .describe("Specific areas where the candidate needs improvement"),
+  finalAssessment: z
+    .string()
+    .min(30)
+    .describe("Comprehensive evaluation summary, hiring recommendation rationale, and overall feedback"),
+  questionsAnalysis: z
+    .array(QuestionAnalysisSchema)
+    .describe("Per-question analysis matching every interview question"),
 });
 
-export type FeedbackInput = z.infer<typeof FeedbackSchema>;
+export type CategoryScore = z.infer<typeof CategoryScoreSchema>;
+export type QuestionAnalysis = z.infer<typeof QuestionAnalysisSchema>;
+export type InterviewFeedbackAiResponse = z.infer<
+  typeof InterviewFeedbackAiResponseSchema
+>;
