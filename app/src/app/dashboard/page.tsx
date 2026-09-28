@@ -10,6 +10,7 @@ import {
   Map,
   ArrowRight,
   Star,
+  Target,
 } from "lucide-react";
 import type { Metadata } from "next";
 import { RecommendedJobsSection } from "@/components/jobs/recommended-jobs-section";
@@ -33,6 +34,7 @@ export default async function DashboardPage() {
           applications: true,
           interviews: true,
           careerRoadmaps: true,
+          skillGaps: true,
         },
       },
     },
@@ -67,6 +69,7 @@ export default async function DashboardPage() {
             applications: true,
             interviews: true,
             careerRoadmaps: true,
+            skillGaps: true,
           },
         },
       },
@@ -118,7 +121,7 @@ export default async function DashboardPage() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <StatCard
           label="Applications"
           value={user._count.applications}
@@ -130,6 +133,12 @@ export default async function DashboardPage() {
           value={user._count.interviews}
           href="/interviews"
           color="violet"
+        />
+        <StatCard
+          label="Skill Gaps"
+          value={user._count.skillGaps}
+          href="/skill-gap"
+          color="indigo"
         />
         <StatCard
           label="Roadmaps"
@@ -221,7 +230,7 @@ export default async function DashboardPage() {
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
           Explore Features
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <FeatureCard
             icon={<Briefcase className="h-5 w-5 text-indigo-500" />}
             title="Browse Jobs"
@@ -242,6 +251,13 @@ export default async function DashboardPage() {
             description="Get ATS score and improvement tips"
             href="/resume"
             color="emerald"
+          />
+          <FeatureCard
+            icon={<Target className="h-5 w-5 text-indigo-500" />}
+            title="Skill Gap Analysis"
+            description="Calibrate readiness against market roles"
+            href="/skill-gap"
+            color="indigo"
           />
           <FeatureCard
             icon={<Map className="h-5 w-5 text-amber-500" />}

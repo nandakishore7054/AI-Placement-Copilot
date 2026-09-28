@@ -34,6 +34,7 @@ export default async function StudentLayout({
                 <Link href="/experiences" className="hover:text-foreground transition-colors">Experiences</Link>
                 <Link href="/interviews" className="hover:text-foreground transition-colors">Interviews</Link>
                 <Link href="/resume" className="hover:text-foreground transition-colors">Resume</Link>
+                <Link href="/skill-gap" className="hover:text-foreground transition-colors">Skill Gap</Link>
                 <Link href="/career" className="hover:text-foreground transition-colors">Career</Link>
               </nav>
             </div>
@@ -48,6 +49,7 @@ export default async function StudentLayout({
             <Link href="/experiences" className="hover:text-foreground shrink-0 transition-colors font-medium">Experiences</Link>
             <Link href="/interviews" className="hover:text-foreground shrink-0 transition-colors">Interviews</Link>
             <Link href="/resume" className="hover:text-foreground shrink-0 transition-colors">Resume</Link>
+            <Link href="/skill-gap" className="hover:text-foreground shrink-0 transition-colors">Skill Gap</Link>
             <Link href="/career" className="hover:text-foreground shrink-0 transition-colors">Career</Link>
           </div>
         </header>

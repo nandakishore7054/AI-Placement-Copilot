@@ -1,6 +1,7 @@
 // src/components/career/index.ts
-// V2 NEW — Career components: SkillGapChart, CareerRoadmap, RoadmapMilestone,
-// RecommendationCard, InsightCard
-// Phase 1: directory placeholder — implemented in Phase 6
+// AI Intelligence Layer — Phase 6 Step 1: Skill Gap Analysis Components
 
-export {};
+export { SkillGapChart } from "./skill-gap-chart";
+export { SkillGapView } from "./skill-gap-view";
+export { AnalyzeSkillGapForm } from "./analyze-skill-gap-form";
+export { SkillGapHistory } from "./skill-gap-history";
