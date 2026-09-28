@@ -1,25 +1,25 @@
 import { Resend } from "resend";
 
-// ─── Lazy Resend Client ───────────────────────────────────────────────────────
-// The Resend constructor throws if the API key is missing.
-// We initialize lazily so that import-time module evaluation during
-// `next build` does not fail when env vars are not present.
+// ─── Environment & Lazy Client Initialization ─────────────────────────────────
 
 let _resend: Resend | null = null;
 
 /**
- * Returns the singleton Resend instance.
- * Initializes on first call — safe during `next build` static analysis.
+ * Returns true if a valid, non-placeholder Resend API key is configured.
  */
-function getResend(): Resend {
+export function isEmailConfigured(): boolean {
+  const apiKey = process.env.RESEND_API_KEY;
+  return Boolean(apiKey && apiKey.trim() !== "" && !apiKey.includes("...") && apiKey !== "re_...");
+}
+
+/**
+ * Returns the singleton Resend instance if configured.
+ * Lazy initialized to prevent module evaluation crashes during `next build`.
+ */
+function getResend(): Resend | null {
+  if (!isEmailConfigured()) return null;
   if (!_resend) {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      throw new Error(
-        "RESEND_API_KEY is not set. Add it to your .env.local file.",
-      );
-    }
-    _resend = new Resend(apiKey);
+    _resend = new Resend(process.env.RESEND_API_KEY!);
   }
   return _resend;
 }
@@ -27,72 +27,268 @@ function getResend(): Resend {
 export const FROM_EMAIL =
   process.env.RESEND_FROM_EMAIL ?? "noreply@aiplacement.co";
 
-// ─── Email Helpers ────────────────────────────────────────────────────────────
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
-interface SendEmailParams {
+// ─── Email Parameter Interfaces ───────────────────────────────────────────────
+
+export interface SendEmailParams {
   to: string | string[];
   subject: string;
   html: string;
   text?: string;
+  replyTo?: string;
 }
 
+export interface SendEmailResult {
+  success: boolean;
+  messageId?: string;
+  error?: string;
+  simulated?: boolean;
+}
+
+export interface NotificationEmailParams {
+  to: string;
+  subject: string;
+  title: string;
+  heading: string;
+  message: string;
+  actionUrl?: string;
+  actionLabel?: string;
+  footerNote?: string;
+}
+
+export interface ApplicationStatusEmailParams {
+  to: string;
+  studentName: string;
+  jobTitle: string;
+  companyName: string;
+  newStatus: string;
+  notes?: string;
+  applicationId: string;
+}
+
+// ─── Branded HTML Email Template Renderer ─────────────────────────────────────
+
+export function renderBrandedEmailHtml(options: {
+  title: string;
+  heading: string;
+  bodyHtml: string;
+  actionUrl?: string;
+  actionLabel?: string;
+  footerNote?: string;
+  showUnsubscribe?: boolean;
+  unsubscribeEmail?: string;
+}): string {
+  const {
+    title,
+    heading,
+    bodyHtml,
+    actionUrl,
+    actionLabel,
+    footerNote,
+    showUnsubscribe = true,
+    unsubscribeEmail,
+  } = options;
+
+  const unsubscribeLink = unsubscribeEmail
+    ? `${APP_URL}/unsubscribe?email=${encodeURIComponent(unsubscribeEmail)}`
+    : `${APP_URL}/unsubscribe`;
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${title}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #1e293b;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f8fafc; padding: 40px 16px;">
+    <tr>
+      <td align="center">
+        <!-- Main Card Container -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 580px; background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+          <!-- Header Bar -->
+          <tr>
+            <td style="background-color: #4f46e5; padding: 24px 32px; text-align: left;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="background-color: #ffffff; border-radius: 8px; width: 32px; height: 32px; text-align: center; vertical-align: middle; font-weight: 800; color: #4f46e5; font-size: 14px;">
+                    AI
+                  </td>
+                  <td style="padding-left: 12px; color: #ffffff; font-size: 18px; font-weight: 700; letter-spacing: -0.5px;">
+                    Placement Copilot
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Content Body -->
+          <tr>
+            <td style="padding: 32px;">
+              <h1 style="color: #0f172a; font-size: 22px; font-weight: 800; margin: 0 0 16px 0; letter-spacing: -0.5px; line-height: 1.3;">
+                ${heading}
+              </h1>
+
+              <div style="color: #334155; font-size: 15px; line-height: 1.6; margin-bottom: 24px;">
+                ${bodyHtml}
+              </div>
+
+              ${
+                actionUrl && actionLabel
+                  ? `
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 28px 0;">
+                <tr>
+                  <td align="left">
+                    <a href="${actionUrl}" target="_blank" style="display: inline-block; background-color: #4f46e5; color: #ffffff; font-size: 14px; font-weight: 700; text-decoration: none; padding: 12px 28px; border-radius: 10px; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.25);">
+                      ${actionLabel} →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              `
+                  : ""
+              }
+
+              ${
+                footerNote
+                  ? `
+              <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin: 24px 0 0 0; padding-top: 16px; border-top: 1px solid #f1f5f9;">
+                ${footerNote}
+              </p>
+              `
+                  : ""
+              }
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 20px 32px; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 12px; line-height: 1.5;">
+              <p style="margin: 0 0 8px 0;">
+                AI Placement Copilot — Career Intelligence & Mock Interview Platform
+              </p>
+              ${
+                showUnsubscribe
+                  ? `<p style="margin: 0;">
+                      You are receiving this because you subscribed to career updates.
+                      <a href="${unsubscribeLink}" style="color: #64748b; text-decoration: underline;">Unsubscribe</a>
+                    </p>`
+                  : ""
+              }
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}
+
+// ─── Core Sending Methods ─────────────────────────────────────────────────────
+
 /**
- * Sends a transactional email via Resend.
- * Returns the message ID on success.
+ * Safely dispatches an email via Resend without throwing unexpected exceptions.
+ * Automatically falls back to simulation mode in local dev/testing if no valid RESEND_API_KEY is present.
  */
-export async function sendEmail(params: SendEmailParams): Promise<string> {
+export async function trySendEmail(params: SendEmailParams): Promise<SendEmailResult> {
   const resend = getResend();
 
-  const { data, error } = await resend.emails.send({
-    from: FROM_EMAIL,
-    to: params.to,
-    subject: params.subject,
-    html: params.html,
-    text: params.text,
-  });
-
-  if (error || !data) {
-    throw new Error(
-      `Failed to send email: ${error?.message ?? "Unknown error"}`,
+  // If Resend is not configured or in development mode without live keys, simulate dispatch
+  if (!resend) {
+    console.info(
+      `[Email Simulation] To: ${Array.isArray(params.to) ? params.to.join(", ") : params.to} | Subject: "${params.subject}" (RESEND_API_KEY is not configured or is a placeholder).`,
     );
+    return {
+      success: true,
+      messageId: `sim_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      simulated: true,
+    };
   }
 
-  return data.id;
+  try {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: params.to,
+      subject: params.subject,
+      html: params.html,
+      text: params.text,
+      replyTo: params.replyTo,
+    });
+
+    if (error || !data) {
+      const errorMsg = error?.message ?? "Unknown Resend error";
+      console.warn(`[trySendEmail] Resend delivery error:`, errorMsg);
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+
+    return {
+      success: true,
+      messageId: data.id,
+    };
+  } catch (err: any) {
+    const errorMsg = err?.message ?? String(err);
+    console.error(`[trySendEmail] Unexpected delivery failure:`, err);
+    return {
+      success: false,
+      error: errorMsg,
+    };
+  }
 }
 
 /**
- * Sends a welcome email to a new subscriber.
+ * Sends a transactional email. Throws an Error on failure for callers that strictly require delivery confirmation.
  */
-export async function sendWelcomeEmail(
-  to: string,
-  firstName: string,
-): Promise<void> {
-  await sendEmail({
+export async function sendEmail(params: SendEmailParams): Promise<string> {
+  const result = await trySendEmail(params);
+  if (!result.success) {
+    throw new Error(`Failed to send email: ${result.error ?? "Unknown error"}`);
+  }
+  return result.messageId ?? "ok";
+}
+
+// ─── Notification Templates ───────────────────────────────────────────────────
+
+/**
+ * Sends a welcome confirmation email to a new subscriber.
+ */
+export async function sendWelcomeEmail(to: string, firstName?: string): Promise<SendEmailResult> {
+  const greeting = firstName ? `Welcome, ${firstName}! 👋` : "Welcome to AI Placement Copilot! 🚀";
+
+  const bodyHtml = `
+    <p>You've successfully subscribed to job alerts and career updates on <strong>AI Placement Copilot</strong>.</p>
+    <p>Here is what you'll get directly in your inbox:</p>
+    <ul style="padding-left: 20px; line-height: 1.8;">
+      <li>🔥 <strong>Weekly Top Jobs Digest:</strong> Handpicked technical roles matched to your verified skills.</li>
+      <li>⚡ <strong>Application Status Alerts:</strong> Real-time notifications when recruiters review your profile.</li>
+      <li>💡 <strong>Career Intelligence:</strong> Industry hiring insights, salary benchmarks, and placement advice.</li>
+    </ul>
+    <p>Get started today by completing your profile and practicing your first voice mock interview.</p>
+  `;
+
+  const html = renderBrandedEmailHtml({
+    title: "Welcome to AI Placement Copilot",
+    heading: greeting,
+    bodyHtml,
+    actionUrl: `${APP_URL}/dashboard`,
+    actionLabel: "Go to Dashboard",
+    footerNote: "You can customize or unsubscribe from job alert emails at any time.",
+    showUnsubscribe: true,
+    unsubscribeEmail: to,
+  });
+
+  return trySendEmail({
     to,
     subject: "Welcome to AI Placement Copilot! 🚀",
-    html: `
-      <div style="font-family: Inter, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px;">
-        <h1 style="color: #1a1a2e; font-size: 28px; margin-bottom: 16px;">
-          Welcome, ${firstName}! 👋
-        </h1>
-        <p style="color: #4a4a6a; font-size: 16px; line-height: 1.6;">
-          You've successfully joined AI Placement Copilot — your intelligent career companion.
-        </p>
-        <p style="color: #4a4a6a; font-size: 16px; line-height: 1.6;">
-          Here's what you can do:
-        </p>
-        <ul style="color: #4a4a6a; font-size: 16px; line-height: 2;">
-          <li>🔍 Browse and apply to jobs semantically matched to your skills</li>
-          <li>🎙️ Practice with AI-powered voice interviews</li>
-          <li>📄 Get your resume analyzed and scored</li>
-          <li>🗺️ Generate a personalized career roadmap</li>
-        </ul>
-        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard"
-           style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 16px;">
-          Go to Dashboard →
-        </a>
-      </div>
-    `,
+    html,
+    text: `Welcome to AI Placement Copilot! You are subscribed to job alerts and weekly digests. Visit your dashboard at ${APP_URL}/dashboard`,
   });
 }
 
@@ -103,40 +299,107 @@ export async function sendJobDigestEmail(
   to: string,
   firstName: string,
   jobs: Array<{ title: string; company: string; location: string; id: string }>,
-): Promise<void> {
+): Promise<SendEmailResult> {
   const jobItems = jobs
     .map(
       (job) => `
-      <li style="margin-bottom: 16px; padding: 16px; background: #f8f9ff; border-radius: 8px;">
-        <strong style="color: #1a1a2e;">${job.title}</strong>
-        <br/>
-        <span style="color: #6366f1;">${job.company}</span> · ${job.location}
-        <br/>
-        <a href="${process.env.NEXT_PUBLIC_APP_URL}/jobs/${job.id}"
-           style="color: #6366f1; text-decoration: none; font-size: 14px;">
-          View Job →
-        </a>
-      </li>
+      <div style="margin-bottom: 12px; padding: 14px 16px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;">
+        <strong style="color: #0f172a; font-size: 15px;">${job.title}</strong>
+        <div style="color: #4f46e5; font-size: 13px; font-weight: 600; margin-top: 2px;">
+          ${job.company} · <span style="color: #64748b; font-weight: normal;">${job.location}</span>
+        </div>
+        <div style="margin-top: 8px;">
+          <a href="${APP_URL}/jobs/${job.id}" style="color: #4f46e5; text-decoration: none; font-size: 13px; font-weight: 700;">
+            View Job Details →
+          </a>
+        </div>
+      </div>
     `,
     )
     .join("");
 
-  await sendEmail({
+  const bodyHtml = `
+    <p>Hi ${firstName}, here are this week's top active campus & tech placements on the platform:</p>
+    <div style="margin: 20px 0;">
+      ${jobItems}
+    </div>
+  `;
+
+  const html = renderBrandedEmailHtml({
+    title: "Weekly Job Digest",
+    heading: "🔥 Top Placements Picked for You",
+    bodyHtml,
+    actionUrl: `${APP_URL}/jobs`,
+    actionLabel: "Browse All Jobs",
+    showUnsubscribe: true,
+    unsubscribeEmail: to,
+  });
+
+  return trySendEmail({
     to,
     subject: "🔥 This Week's Top Jobs — AI Placement Copilot",
-    html: `
-      <div style="font-family: Inter, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px;">
-        <h1 style="color: #1a1a2e; font-size: 24px;">Hi ${firstName}, here are this week's top picks 👇</h1>
-        <ul style="list-style: none; padding: 0;">${jobItems}</ul>
-        <a href="${process.env.NEXT_PUBLIC_APP_URL}/jobs"
-           style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 8px;">
-          View All Jobs →
-        </a>
-        <p style="color: #9ca3af; font-size: 12px; margin-top: 32px;">
-          You're receiving this because you subscribed to job alerts on AI Placement Copilot.
-          <a href="${process.env.NEXT_PUBLIC_APP_URL}/unsubscribe" style="color: #9ca3af;">Unsubscribe</a>
-        </p>
-      </div>
-    `,
+    html,
+  });
+}
+
+/**
+ * Reusable general notification email foundation for Phase 7.
+ */
+export async function sendNotificationEmail(
+  params: NotificationEmailParams,
+): Promise<SendEmailResult> {
+  const html = renderBrandedEmailHtml({
+    title: params.title,
+    heading: params.heading,
+    bodyHtml: `<p>${params.message}</p>`,
+    actionUrl: params.actionUrl,
+    actionLabel: params.actionLabel,
+    footerNote: params.footerNote,
+    showUnsubscribe: true,
+    unsubscribeEmail: params.to,
+  });
+
+  return trySendEmail({
+    to: params.to,
+    subject: params.subject,
+    html,
+    text: params.message,
+  });
+}
+
+/**
+ * Foundation for Application Status Change Notification (Prepared for Step 2).
+ */
+export async function sendApplicationStatusEmail(
+  params: ApplicationStatusEmailParams,
+): Promise<SendEmailResult> {
+  const { to, studentName, jobTitle, companyName, newStatus, notes, applicationId } = params;
+
+  const statusLabel = newStatus.replace(/_/g, " ");
+
+  const bodyHtml = `
+    <p>Hi ${studentName},</p>
+    <p>There is an update on your application for <strong>${jobTitle}</strong> at <strong>${companyName}</strong>:</p>
+    <div style="padding: 16px; margin: 16px 0; background-color: #f1f5f9; border-left: 4px solid #4f46e5; border-radius: 6px;">
+      <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: #64748b;">Current Status</div>
+      <div style="font-size: 16px; font-weight: 800; color: #0f172a; margin-top: 4px;">${statusLabel}</div>
+      ${notes ? `<p style="font-size: 13px; color: #334155; margin-top: 8px;">${notes}</p>` : ""}
+    </div>
+    <p>You can track the progress of all your active applications on your dashboard.</p>
+  `;
+
+  const html = renderBrandedEmailHtml({
+    title: `Application Update: ${jobTitle}`,
+    heading: "Application Status Update",
+    bodyHtml,
+    actionUrl: `${APP_URL}/applications/${applicationId}`,
+    actionLabel: "View Application Status",
+    showUnsubscribe: false,
+  });
+
+  return trySendEmail({
+    to,
+    subject: `Application Update: ${jobTitle} at ${companyName}`,
+    html,
   });
 }

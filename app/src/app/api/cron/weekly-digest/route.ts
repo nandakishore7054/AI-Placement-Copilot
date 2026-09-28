@@ -57,8 +57,12 @@ export async function GET(req: NextRequest) {
     for (const subscriber of subscribers) {
       try {
         const firstName = subscriber.user?.firstName ?? "there";
-        await sendJobDigestEmail(subscriber.email, firstName, jobData);
-        sent++;
+        const emailRes = await sendJobDigestEmail(subscriber.email, firstName, jobData);
+        if (emailRes.success) {
+          sent++;
+        } else {
+          errors.push(`${subscriber.email}: ${emailRes.error || "Delivery failed"}`);
+        }
       } catch (err) {
         errors.push(`${subscriber.email}: ${String(err)}`);
       }
