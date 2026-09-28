@@ -14,6 +14,9 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 import { RecommendedJobsSection } from "@/components/jobs/recommended-jobs-section";
+import { getRecommendations } from "@/actions/recommendations";
+import { getActiveCareerRoadmap } from "@/actions/career";
+import { RecommendationsSection } from "@/components/career";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +90,11 @@ export default async function DashboardPage() {
   const profileComplete =
     profile && profile.skills.length > 0 && !!profile.bio;
 
+  const [recommendations, activeRoadmap] = await Promise.all([
+    getRecommendations(),
+    getActiveCareerRoadmap(),
+  ]);
+
   return (
     <div className="space-y-8">
       {/* Greeting */}
@@ -148,8 +156,61 @@ export default async function DashboardPage() {
         />
       </div>
 
+      {/* Active Career Roadmap Progress Card */}
+      {activeRoadmap && (
+        <div className="p-5 sm:p-6 rounded-3xl border bg-gradient-to-r from-indigo-50/60 via-card to-card flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
+          <div className="space-y-1.5 max-w-lg">
+            <div className="flex items-center gap-2">
+              <span className="rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider">
+                Active Roadmap
+              </span>
+              <span className="text-xs text-muted-foreground font-medium">
+                {activeRoadmap.currentLevel} → {activeRoadmap.targetLevel}
+              </span>
+            </div>
+            <h3 className="font-bold text-base text-foreground">
+              {activeRoadmap.targetRole}
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              {Array.isArray(activeRoadmap.milestones)
+                ? (activeRoadmap.milestones as any[]).find((m) => !m.completed)?.title || "All milestones achieved"
+                : "Milestones in progress"}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-4 sm:shrink-0">
+            <div className="text-right">
+              <span className="text-xl font-black text-foreground">
+                {activeRoadmap.progress}%
+              </span>
+              <div className="h-2 w-28 rounded-full bg-muted overflow-hidden mt-1">
+                <div
+                  className="h-full rounded-full bg-indigo-600 transition-all duration-500"
+                  style={{ width: `${Math.max(activeRoadmap.progress, 5)}%` }}
+                />
+              </div>
+            </div>
+
+            <Link
+              href="/career"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-colors shadow-2xs shrink-0 cursor-pointer"
+            >
+              <span>View Roadmap</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Recommended Jobs via pgvector semantic matching */}
       <RecommendedJobsSection limit={6} />
+
+      {/* AI Recommendations Section */}
+      <RecommendationsSection
+        recommendations={recommendations}
+        title="AI Placement Recommendations"
+        description="Tailored next steps from your resume, skill gaps, and interview performance."
+      />
 
       {/* Profile Summary */}
       {profile && (
