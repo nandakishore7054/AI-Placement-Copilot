@@ -12,6 +12,7 @@ import { db } from "@/lib/db";
 import { createAuditLog } from "@/lib/audit";
 import { AuditAction, AuditEntity, ApplicationStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { sendApplicationStatusEmail } from "@/lib/email";
 
 export async function applyForJob(jobId: string) {
   const userId = await requireAuth();
@@ -226,13 +227,33 @@ export async function updateApplicationStatus(
   // Verify that the application actually belongs to a job from this company
   const existingApp = await db.application.findUnique({
     where: { id: applicationId },
-    include: { job: { select: { companyId: true } } },
+    include: {
+      job: {
+        select: {
+          id: true,
+          title: true,
+          companyId: true,
+          company: { select: { id: true, name: true } },
+        },
+      },
+      user: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+    },
   });
 
   if (!existingApp) throw new Error("Application not found.");
   if (existingApp.job.companyId !== companyId) {
     throw new Error("Unauthorized: Application does not belong to this company.");
   }
+
+  const oldStatus = existingApp.status;
+  const isStatusChanged = oldStatus !== status;
 
   const application = await db.application.update({
     where: { id: applicationId },
@@ -245,12 +266,41 @@ export async function updateApplicationStatus(
     entityId: applicationId,
     userId,
     metadata: {
-      oldStatus: existingApp.status,
+      oldStatus,
       newStatus: status,
       notes: notes || null,
       companyId,
     },
   });
+
+  // Automatically notify student only if status actually changed
+  if (isStatusChanged && existingApp.user?.email) {
+    try {
+      const emailResult = await sendApplicationStatusEmail({
+        to: existingApp.user.email,
+        studentName: existingApp.user.firstName || "there",
+        jobTitle: existingApp.job.title,
+        companyName: existingApp.job.company.name,
+        previousStatus: oldStatus,
+        newStatus: status,
+        notes: notes || undefined,
+        applicationId,
+      });
+
+      if (!emailResult.success) {
+        console.warn(
+          `[updateApplicationStatus] Email notification failed for application ${applicationId}:`,
+          emailResult.error,
+        );
+      }
+    } catch (emailErr) {
+      // Email failure must NOT roll back or break the application update
+      console.error(
+        `[updateApplicationStatus] Unexpected error dispatching status email:`,
+        emailErr,
+      );
+    }
+  }
 
   revalidatePath("/recruiter/applicants");
   revalidatePath(`/recruiter/applicants/${applicationId}`);

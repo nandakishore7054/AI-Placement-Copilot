@@ -64,6 +64,7 @@ export interface ApplicationStatusEmailParams {
   jobTitle: string;
   companyName: string;
   newStatus: string;
+  previousStatus?: string;
   notes?: string;
   applicationId: string;
 }
@@ -373,33 +374,67 @@ export async function sendNotificationEmail(
 export async function sendApplicationStatusEmail(
   params: ApplicationStatusEmailParams,
 ): Promise<SendEmailResult> {
-  const { to, studentName, jobTitle, companyName, newStatus, notes, applicationId } = params;
+  const {
+    to,
+    studentName,
+    jobTitle,
+    companyName,
+    newStatus,
+    previousStatus,
+    notes,
+    applicationId,
+  } = params;
 
   const statusLabel = newStatus.replace(/_/g, " ");
+  const prevLabel = previousStatus ? previousStatus.replace(/_/g, " ") : null;
+
+  const statusColorMap: Record<string, string> = {
+    SHORTLISTED: "#059669",
+    INTERVIEW_SCHEDULED: "#4f46e5",
+    ACCEPTED: "#16a34a",
+    REJECTED: "#dc2626",
+    REVIEWED: "#0284c7",
+    PENDING: "#d97706",
+    WITHDRAWN: "#64748b",
+  };
+  const badgeColor = statusColorMap[newStatus] || "#4f46e5";
 
   const bodyHtml = `
     <p>Hi ${studentName},</p>
     <p>There is an update on your application for <strong>${jobTitle}</strong> at <strong>${companyName}</strong>:</p>
-    <div style="padding: 16px; margin: 16px 0; background-color: #f1f5f9; border-left: 4px solid #4f46e5; border-radius: 6px;">
-      <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: #64748b;">Current Status</div>
-      <div style="font-size: 16px; font-weight: 800; color: #0f172a; margin-top: 4px;">${statusLabel}</div>
-      ${notes ? `<p style="font-size: 13px; color: #334155; margin-top: 8px;">${notes}</p>` : ""}
+    <div style="padding: 18px; margin: 20px 0; background-color: #f8fafc; border-left: 4px solid ${badgeColor}; border-radius: 8px; border: 1px solid #e2e8f0; border-left-width: 4px;">
+      ${
+        prevLabel
+          ? `<div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px;">Previous Status: <span style="text-decoration: line-through;">${prevLabel}</span></div>`
+          : ""
+      }
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; margin-top: ${
+        prevLabel ? "4px" : "0"
+      };">Updated Status</div>
+      <div style="font-size: 18px; font-weight: 800; color: ${badgeColor}; margin-top: 4px;">${statusLabel}</div>
+      ${
+        notes
+          ? `<p style="font-size: 13px; color: #334155; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #cbd5e1;"><strong>Note from recruiter:</strong> ${notes}</p>`
+          : ""
+      }
     </div>
-    <p>You can track the progress of all your active applications on your dashboard.</p>
+    <p style="font-size: 14px; color: #475569;">You can review full application details, interview schedules, and feedback anytime on your dashboard.</p>
   `;
 
   const html = renderBrandedEmailHtml({
     title: `Application Update: ${jobTitle}`,
-    heading: "Application Status Update",
+    heading: `Application Status: ${statusLabel}`,
     bodyHtml,
     actionUrl: `${APP_URL}/applications/${applicationId}`,
-    actionLabel: "View Application Status",
-    showUnsubscribe: false,
+    actionLabel: "View Application Details",
+    footerNote: "You are receiving this notification regarding your active application on AI Placement Copilot.",
+    showUnsubscribe: true,
+    unsubscribeEmail: to,
   });
 
   return trySendEmail({
     to,
-    subject: `Application Update: ${jobTitle} at ${companyName}`,
+    subject: `Application Update: ${jobTitle} at ${companyName} (${statusLabel})`,
     html,
   });
 }

@@ -21,12 +21,18 @@ interface CreateAuditLogParams {
  */
 export async function createAuditLog(params: CreateAuditLogParams) {
   try {
-    const headersList = await headers();
-    const ipAddress =
-      headersList.get("x-forwarded-for") ??
-      headersList.get("x-real-ip") ??
-      "unknown";
-    const userAgent = headersList.get("user-agent") ?? "unknown";
+    let ipAddress = "unknown";
+    let userAgent = "unknown";
+    try {
+      const headersList = await headers();
+      ipAddress =
+        headersList.get("x-forwarded-for") ??
+        headersList.get("x-real-ip") ??
+        "unknown";
+      userAgent = headersList.get("user-agent") ?? "unknown";
+    } catch {
+      // In non-request contexts (CLI scripts, seed, background tasks), headers() is unavailable
+    }
 
     await db.auditLog.create({
       data: {
