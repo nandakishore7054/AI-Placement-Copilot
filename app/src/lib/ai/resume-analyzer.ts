@@ -1,19 +1,19 @@
 import { generateObject } from "ai";
-import { geminiFlash } from "./gemini";
+import { executeWithRetryAndFallback } from "./gemini";
 import { ResumeAnalysisSchema, type ResumeAnalysisInput } from "@/schemas/resume";
 
 /**
- * Performs structured AI analysis on a candidate's resume using Gemini 3.6 Flash.
+ * Performs structured AI analysis on a candidate's resume using Gemini.
  * Evaluates ATS compatibility, content quality, formatting, keywords, strengths,
  * weaknesses, section-level scores, and actionable recommendations.
  */
 export async function analyzeResumeWithAi(
-  extractedText: string
+  extractedText: string,
 ): Promise<ResumeAnalysisInput> {
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey) {
     throw new Error(
-      "GOOGLE_GENERATIVE_AI_API_KEY is not configured. Please set it in your environment."
+      "GOOGLE_GENERATIVE_AI_API_KEY is not configured. Please set it in your environment.",
     );
   }
 
@@ -22,10 +22,13 @@ export async function analyzeResumeWithAi(
     throw new Error("Resume content contains insufficient text for AI analysis.");
   }
 
-  const result = await generateObject({
-    model: geminiFlash,
-    schema: ResumeAnalysisSchema,
-    system: `You are an elite technical recruiter, hiring manager, and ATS (Applicant Tracking System) optimization engine for university placements and tech careers.
+  const result = await executeWithRetryAndFallback(
+    async (model) => {
+      return await generateObject({
+        model,
+        schema: ResumeAnalysisSchema,
+        maxRetries: 0,
+        system: `You are an elite technical recruiter, hiring manager, and ATS (Applicant Tracking System) optimization engine for university placements and tech careers.
 
 Analyze the student's resume thoroughly against contemporary industry placement standards.
 
@@ -40,8 +43,14 @@ Provide a comprehensive structured analysis:
 8. sectionScores: Dictionary containing scores (0-100) for standard sections: "Experience", "Education", "Skills", "Projects", "Summary".
 9. strengths: Top 2 to 4 key strengths of this candidate's profile.
 10. weaknesses: 2 to 4 specific gaps or areas needing immediate improvement.`,
-    prompt: `Candidate Resume Text:\n\n${cleanText}`,
-  });
+        prompt: `Candidate Resume Text:\n\n${cleanText}`,
+      });
+    },
+    {
+      operationName: "analyzeResumeWithAi",
+      maxRetriesPerModel: 2,
+    },
+  );
 
   return result.object;
 }

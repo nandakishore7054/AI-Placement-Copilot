@@ -1,5 +1,5 @@
 import { generateObject } from "ai";
-import { geminiFlash } from "./gemini";
+import { executeWithRetryAndFallback } from "./gemini";
 import {
   GeneratedQuestionsListSchema,
   type GeneratedQuestion,
@@ -7,7 +7,7 @@ import {
 import { QuestionDifficulty } from "@prisma/client";
 
 /**
- * Generates structured interview questions for a mock interview using Gemini 3.6 Flash.
+ * Generates structured interview questions for a mock interview using Gemini.
  *
  * Tailors questions based on:
  * - Target Role (e.g. Frontend Engineer, Full Stack Developer, Data Scientist)
@@ -31,10 +31,13 @@ export async function generateInterviewQuestions(
   const stackString = techStack.length > 0 ? techStack.join(", ") : "General Engineering";
 
   try {
-    const result = await generateObject({
-      model: geminiFlash,
-      schema: GeneratedQuestionsListSchema,
-      system: `You are an elite technical recruiter and interviewer conducting placement interviews for top software companies and startups.
+    const result = await executeWithRetryAndFallback(
+      async (model) => {
+        return await generateObject({
+          model,
+          schema: GeneratedQuestionsListSchema,
+          maxRetries: 0,
+          system: `You are an elite technical recruiter and interviewer conducting placement interviews for top software companies and startups.
 
 Your task is to generate exactly 5 high-caliber, structured interview questions for a candidate.
 
@@ -50,12 +53,20 @@ For each question:
 - difficulty: "EASY", "MEDIUM", or "HARD". Ensure a progressive difficulty curve (start with EASY/MEDIUM, ramp up to HARD).
 - orderIndex: 0-indexed integer representing chronological question order (0, 1, 2, 3, 4).
 - expectedAnswer: A concise 2-3 sentence summary of what a strong answer should cover (key concepts, metrics, frameworks).`,
-      prompt: `Generate 5 structured interview questions for:
+          prompt: `Generate 5 structured interview questions for:
 Role: ${role}
 Type: ${type}
 Level: ${level}
 Technologies: ${stackString}`,
-    });
+        });
+      },
+      {
+        operationName: `generateInterviewQuestions(${role})`,
+        maxRetriesPerModel: 2,
+        baseDelayMs: 1000,
+        maxDelayMs: 3500,
+      },
+    );
 
     // Ensure sequential orderIndex and valid difficulty
     const cleanedQuestions = result.object.questions.map((q, index) => ({
@@ -71,10 +82,6 @@ Technologies: ${stackString}`,
     return cleanedQuestions;
   } catch (error) {
     console.error("[generateInterviewQuestions] Gemini AI generation error:", error);
-    throw new Error(
-      `Failed to generate interview questions: ${
-        error instanceof Error ? error.message : "AI service unavailable"
-      }`,
-    );
+    throw error;
   }
 }

@@ -1,5 +1,5 @@
 import { generateObject } from "ai";
-import { geminiFlash } from "./gemini";
+import { executeWithRetryAndFallback } from "./gemini";
 import {
   InterviewFeedbackAiResponseSchema,
   type InterviewFeedbackAiResponse,
@@ -14,7 +14,8 @@ export interface InterviewQuestionEvaluationContext {
 }
 
 /**
- * Generates comprehensive structured interview feedback using Gemini 3.6 Flash.
+ * Generates comprehensive structured interview feedback using Gemini AI with
+ * bounded exponential backoff, jitter, and automatic fallback failover.
  *
  * Evaluates:
  * - 5 core assessment dimensions: Technical Correctness, Communication & Articulation,
@@ -72,10 +73,13 @@ export async function generateInterviewFeedback(
     .join("\n\n");
 
   try {
-    const result = await generateObject({
-      model: geminiFlash,
-      schema: InterviewFeedbackAiResponseSchema,
-      system: `You are a Principal Engineering Interviewer and Staff Placement Evaluator at a premier technology company.
+    const result = await executeWithRetryAndFallback(
+      async (model, isFallback) => {
+        return await generateObject({
+          model,
+          schema: InterviewFeedbackAiResponseSchema,
+          maxRetries: 0, // Retries are handled by executeWithRetryAndFallback with backoff & failover
+          system: `You are a Principal Engineering Interviewer and Staff Placement Evaluator at a premier technology company.
 
 Your job is to thoroughly and objectively evaluate a candidate's completed mock interview session based on the provided questions and the recorded conversation transcript.
 
@@ -92,7 +96,7 @@ Evaluation Guidelines:
    - "Clarity & Structured Delivery": Organization of answers, use of STAR method for behavioral/situational questions, systematic walkthroughs.
 6. In questionsAnalysis, EVERY question in the list must be evaluated. You MUST use the exact "questionId" provided for each question.
 7. Be encouraging yet rigorous and constructive. Provide specific suggestions for how to level up.`,
-      prompt: `Candidate Interview Evaluation:
+          prompt: `Candidate Interview Evaluation:
 Role: ${roleTitle}
 Seniority Level: ${levelTitle}
 Key Technologies: ${stackString}
@@ -107,7 +111,16 @@ ${transcript}
 
 ---
 Generate the structured interview evaluation now.`,
-    });
+        });
+      },
+      {
+        operationName: `generateInterviewFeedback(${interviewId})`,
+        maxRetriesPerModel: 2,
+        baseDelayMs: 1200,
+        maxDelayMs: 4000,
+        jitterMs: 500,
+      },
+    );
 
     // Ensure all questionIds from the original question list exist in questionsAnalysis
     const evaluatedQuestionIds = new Set(
@@ -143,10 +156,6 @@ Generate the structured interview evaluation now.`,
     };
   } catch (error) {
     console.error("[generateInterviewFeedback] Gemini generation failed:", error);
-    throw new Error(
-      `Failed to generate interview feedback: ${
-        error instanceof Error ? error.message : "AI service unavailable"
-      }`,
-    );
+    throw error;
   }
 }

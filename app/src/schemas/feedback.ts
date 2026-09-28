@@ -23,17 +23,17 @@ export const InterviewFeedbackAiResponseSchema = z.object({
     .describe("Exactly 5 core assessment dimensions"),
   strengths: z
     .array(z.string())
-    .min(2)
-    .max(8)
+    .min(1)
+    .max(10)
     .describe("Key candidate strengths demonstrated in the interview"),
   areasForImprovement: z
     .array(z.string())
-    .min(2)
-    .max(8)
+    .min(1)
+    .max(10)
     .describe("Specific areas where the candidate needs improvement"),
   finalAssessment: z
     .string()
-    .min(30)
+    .min(10)
     .describe("Comprehensive evaluation summary, hiring recommendation rationale, and overall feedback"),
   questionsAnalysis: z
     .array(QuestionAnalysisSchema)

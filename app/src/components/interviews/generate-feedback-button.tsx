@@ -28,13 +28,24 @@ export function GenerateFeedbackButton({
             ? "Re-evaluating interview session with Gemini AI..."
             : "Generating comprehensive AI interview feedback...",
         );
-        await generateFeedback(interviewId, isRegenerate);
+        const result = await generateFeedback(interviewId, isRegenerate);
+
+        if (!result.success) {
+          toast.error(
+            result.error ||
+              "AI feedback is temporarily unavailable. Please try again in a moment.",
+          );
+          return;
+        }
+
         toast.success("Interview feedback generated successfully!");
         router.refresh();
         router.push(`/interviews/${interviewId}/feedback`);
       } catch (error: any) {
         console.error("[GenerateFeedbackButton] Error:", error);
-        toast.error(error?.message || "Failed to generate interview feedback.");
+        toast.error(
+          "AI feedback is temporarily unavailable. Please try again in a moment.",
+        );
       }
     });
   };

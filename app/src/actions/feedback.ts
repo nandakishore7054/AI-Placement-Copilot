@@ -6,8 +6,16 @@ import { createAuditLog } from "@/lib/audit";
 import { AuditAction, AuditEntity } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { generateInterviewFeedback } from "@/lib/ai/interview-feedback";
+import { isTransientGeminiError } from "@/lib/ai/gemini";
 
-// ─── Generate Interview Feedback (Idempotent) ─────────────────────────────────
+export interface GenerateFeedbackResult {
+  success: boolean;
+  feedback?: any;
+  error?: string;
+  isTransient?: boolean;
+}
+
+// ─── Generate Interview Feedback (Idempotent & Resilient) ─────────────────────
 
 /**
  * Generates and persists AI evaluation for a completed interview session.
@@ -16,108 +24,139 @@ import { generateInterviewFeedback } from "@/lib/ai/interview-feedback";
  * - Student must be the owner of the interview.
  * - Interview must have a non-empty transcript.
  * - Idempotent: returns existing feedback if already generated (unless forceRegenerate = true).
- * - Saves structured dimensions, question-by-question analysis, strengths, weaknesses.
+ * - Handles transient Gemini errors (high-demand, 503, rate-limits) gracefully without throwing 500s.
+ * - Never creates duplicate records or partial writes on failure.
  */
 export async function generateFeedback(
   interviewId: string,
   forceRegenerate: boolean = false,
-) {
-  const userId = await requireAuth();
+): Promise<GenerateFeedbackResult> {
+  try {
+    const userId = await requireAuth();
 
-  const interview = await db.interview.findUnique({
-    where: { id: interviewId },
-    include: {
-      questions: { orderBy: { orderIndex: "asc" } },
-      feedback: true,
-    },
-  });
+    const interview = await db.interview.findUnique({
+      where: { id: interviewId },
+      include: {
+        questions: { orderBy: { orderIndex: "asc" } },
+        feedback: true,
+      },
+    });
 
-  if (!interview) {
-    throw new Error("Interview session not found.");
-  }
+    if (!interview) {
+      return {
+        success: false,
+        error: "Interview session not found.",
+      };
+    }
 
-  if (interview.userId !== userId) {
-    throw new Error(
-      "Unauthorized: You do not have permission to evaluate this interview.",
-    );
-  }
+    if (interview.userId !== userId) {
+      return {
+        success: false,
+        error: "Unauthorized: You do not have permission to evaluate this interview.",
+      };
+    }
 
-  // Idempotent guard: return existing feedback if not forcing regeneration
-  if (interview.feedback && !forceRegenerate) {
-    return interview.feedback;
-  }
+    // Idempotent guard: return existing feedback if not forcing regeneration
+    if (interview.feedback && !forceRegenerate) {
+      return {
+        success: true,
+        feedback: interview.feedback,
+      };
+    }
 
-  if (!interview.transcript || interview.transcript.trim().length === 0) {
-    throw new Error(
-      "Cannot generate feedback: No interview transcript is available. Please conduct the voice interview session first.",
-    );
-  }
+    if (!interview.transcript || interview.transcript.trim().length === 0) {
+      return {
+        success: false,
+        error: "Cannot generate feedback: No interview transcript is available. Please conduct the voice interview session first.",
+      };
+    }
 
-  if (interview.transcript.trim().length < 20) {
-    throw new Error(
-      "The recorded transcript is too short to evaluate. Please participate actively in the interview to receive a detailed evaluation.",
-    );
-  }
+    if (interview.transcript.trim().length < 20) {
+      return {
+        success: false,
+        error: "The recorded transcript is too short to evaluate. Please participate actively in the interview to receive a detailed evaluation.",
+      };
+    }
 
-  if (!interview.questions || interview.questions.length === 0) {
-    throw new Error(
-      "No interview questions found for this session to evaluate against.",
-    );
-  }
+    if (!interview.questions || interview.questions.length === 0) {
+      return {
+        success: false,
+        error: "No interview questions found for this session to evaluate against.",
+      };
+    }
 
-  // Call Gemini structured feedback generator
-  const aiFeedback = await generateInterviewFeedback(
-    interviewId,
-    interview.transcript,
-    interview.questions,
-    {
-      role: interview.role,
-      level: interview.level,
-      techStack: interview.techStack,
-    },
-  );
-
-  // Persist using upsert to guarantee idempotency and avoid duplicates
-  const feedback = await db.feedback.upsert({
-    where: { interviewId },
-    create: {
+    // Call Gemini structured feedback generator (with bounded exponential backoff & model failover)
+    const aiFeedback = await generateInterviewFeedback(
       interviewId,
+      interview.transcript,
+      interview.questions,
+      {
+        role: interview.role,
+        level: interview.level,
+        techStack: interview.techStack,
+      },
+    );
+
+    // Persist using upsert to guarantee idempotency and avoid duplicates
+    const feedback = await db.feedback.upsert({
+      where: { interviewId },
+      create: {
+        interviewId,
+        userId,
+        totalScore: aiFeedback.totalScore,
+        categoryScores: aiFeedback.categoryScores,
+        strengths: aiFeedback.strengths,
+        areasForImprovement: aiFeedback.areasForImprovement,
+        finalAssessment: aiFeedback.finalAssessment,
+        questionsAnalysis: aiFeedback.questionsAnalysis,
+      },
+      update: {
+        totalScore: aiFeedback.totalScore,
+        categoryScores: aiFeedback.categoryScores,
+        strengths: aiFeedback.strengths,
+        areasForImprovement: aiFeedback.areasForImprovement,
+        finalAssessment: aiFeedback.finalAssessment,
+        questionsAnalysis: aiFeedback.questionsAnalysis,
+      },
+    });
+
+    // Audit logging
+    await createAuditLog({
+      action: AuditAction.AI_GENERATE,
+      entityType: AuditEntity.FEEDBACK,
+      entityId: feedback.id,
       userId,
-      totalScore: aiFeedback.totalScore,
-      categoryScores: aiFeedback.categoryScores,
-      strengths: aiFeedback.strengths,
-      areasForImprovement: aiFeedback.areasForImprovement,
-      finalAssessment: aiFeedback.finalAssessment,
-      questionsAnalysis: aiFeedback.questionsAnalysis,
-    },
-    update: {
-      totalScore: aiFeedback.totalScore,
-      categoryScores: aiFeedback.categoryScores,
-      strengths: aiFeedback.strengths,
-      areasForImprovement: aiFeedback.areasForImprovement,
-      finalAssessment: aiFeedback.finalAssessment,
-      questionsAnalysis: aiFeedback.questionsAnalysis,
-    },
-  });
+      metadata: {
+        interviewId,
+        totalScore: feedback.totalScore,
+        regenerated: Boolean(forceRegenerate && interview.feedback),
+      },
+    });
 
-  // Audit logging
-  await createAuditLog({
-    action: AuditAction.AI_GENERATE,
-    entityType: AuditEntity.FEEDBACK,
-    entityId: feedback.id,
-    userId,
-    metadata: {
-      interviewId,
-      totalScore: feedback.totalScore,
-      regenerated: Boolean(forceRegenerate && interview.feedback),
-    },
-  });
+    revalidatePath(`/interviews/${interviewId}`);
+    revalidatePath(`/interviews/${interviewId}/feedback`);
+    revalidatePath("/interviews");
 
-  revalidatePath(`/interviews/${interviewId}`);
-  revalidatePath(`/interviews/${interviewId}/feedback`);
-  revalidatePath("/interviews");
+    return {
+      success: true,
+      feedback,
+    };
+  } catch (error: any) {
+    console.error("[generateFeedback] Server Action Error:", error);
 
-  return feedback;
+    if (isTransientGeminiError(error)) {
+      return {
+        success: false,
+        error: "AI feedback is temporarily unavailable due to high demand. Please try again in a moment.",
+        isTransient: true,
+      };
+    }
+
+    return {
+      success: false,
+      error: error?.message || "Failed to generate interview feedback. Please try again.",
+    };
+  }
 }
 
 // ─── Get Feedback by Interview ID ─────────────────────────────────────────────
