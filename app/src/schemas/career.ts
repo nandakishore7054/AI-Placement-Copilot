@@ -1,9 +1,11 @@
 import { z } from "zod";
-import { JobLevel } from "@prisma/client";
+import { JobLevel, InsightCategory } from "@prisma/client";
+import { IdSchema } from "./common";
 
 export const GenerateRoadmapSchema = z.object({
   targetRole: z
     .string()
+    .trim()
     .min(2, "Target role must be at least 2 characters")
     .max(100, "Target role is too long"),
   currentLevel: z.nativeEnum(JobLevel).default(JobLevel.BEGINNER),
@@ -49,9 +51,14 @@ export const CareerRoadmapResultSchema = z.object({
 });
 
 export const UpdateMilestoneSchema = z.object({
-  roadmapId: z.string(),
-  milestoneIndex: z.number().int().min(0),
+  roadmapId: IdSchema,
+  milestoneIndex: z.coerce.number().int().min(0, "Milestone index cannot be negative"),
   completed: z.boolean(),
+});
+
+export const CareerInsightsFilterSchema = z.object({
+  category: z.nativeEnum(InsightCategory).optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
 export type GenerateRoadmapInput = z.infer<typeof GenerateRoadmapSchema>;
@@ -59,3 +66,4 @@ export type RoadmapMilestone = z.infer<typeof RoadmapMilestoneSchema>;
 export type RoadmapResource = z.infer<typeof RoadmapResourceSchema>;
 export type CareerRoadmapResult = z.infer<typeof CareerRoadmapResultSchema>;
 export type UpdateMilestoneInput = z.infer<typeof UpdateMilestoneSchema>;
+export type CareerInsightsFilterInput = z.input<typeof CareerInsightsFilterSchema>;

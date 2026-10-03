@@ -5,20 +5,16 @@
 import { db } from "@/lib/db";
 import { requireUserRole } from "@/lib/auth/helpers";
 import { UserRole, AuditAction, AuditEntity } from "@prisma/client";
+import { AuditLogFiltersSchema, type AuditLogFiltersInput } from "@/schemas/audit";
+import { IdSchema } from "@/schemas/common";
 
-interface AuditLogFilters {
-  userId?: string;
-  action?: AuditAction;
-  entityType?: AuditEntity;
-  entityId?: string;
-  page?: number;
-  pageSize?: number;
-}
+export type AuditLogFilters = AuditLogFiltersInput;
 
 export async function getAuditLogs(filters: AuditLogFilters = {}) {
   await requireUserRole(UserRole.ADMIN);
 
-  const { userId, action, entityType, entityId, page = 1, pageSize = 50 } = filters;
+  const parsed = AuditLogFiltersSchema.parse(filters ?? {});
+  const { userId, action, entityType, entityId, page, pageSize } = parsed;
 
   const where = {
     ...(userId && { userId }),
@@ -45,9 +41,10 @@ export async function getAuditLogs(filters: AuditLogFilters = {}) {
 
 export async function getUserAuditTrail(targetUserId: string) {
   await requireUserRole(UserRole.ADMIN);
+  const validUserId = IdSchema.parse(targetUserId);
 
   return db.auditLog.findMany({
-    where: { userId: targetUserId },
+    where: { userId: validUserId },
     orderBy: { createdAt: "desc" },
     take: 100,
   });

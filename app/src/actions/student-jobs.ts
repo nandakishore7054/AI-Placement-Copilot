@@ -7,6 +7,9 @@ import { db } from "@/lib/db";
 import { JobLevel, JobType } from "@prisma/client";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
 import { saveResumeEmbedding } from "@/lib/ai/embeddings";
+import { JobFiltersSchema } from "@/schemas/job";
+import { IdSchema } from "@/schemas/common";
+import { z } from "zod";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -62,7 +65,8 @@ export interface RecommendedJobsResult {
 // Semantic search (pgvector) is available at POST /api/jobs/search and
 // is intentionally kept as a separate endpoint to swap in when needed.
 
-export async function getJobs(filters: JobFilters): Promise<JobListResult> {
+export async function getJobs(filters: JobFilters = {}): Promise<JobListResult> {
+  const validFilters = JobFiltersSchema.parse(filters);
   const {
     search,
     category,
@@ -71,7 +75,7 @@ export async function getJobs(filters: JobFilters): Promise<JobListResult> {
     type,
     page = 1,
     pageSize = DEFAULT_PAGE_SIZE,
-  } = filters;
+  } = validFilters;
 
   const where = {
     isVisible: true,
@@ -134,8 +138,9 @@ export async function getJobs(filters: JobFilters): Promise<JobListResult> {
 // ─── Get single job by ID ─────────────────────────────────────────────────────
 
 export async function getJobById(jobId: string) {
+  const validJobId = IdSchema.parse(jobId);
   return db.job.findUnique({
-    where: { id: jobId, isVisible: true },
+    where: { id: validJobId, isVisible: true },
     include: {
       company: {
         select: {
@@ -162,6 +167,8 @@ export async function applyToJob(
   const { userId } = await auth();
   if (!userId) return { success: false, error: "Not authenticated" };
 
+  const validJobId = IdSchema.parse(jobId);
+
   const user = await db.user.findUnique({
     where: { id: userId },
     select: { onboardingDone: true },
@@ -170,7 +177,7 @@ export async function applyToJob(
     return { success: false, error: "Complete onboarding first" };
 
   const existing = await db.application.findUnique({
-    where: { userId_jobId: { userId, jobId } },
+    where: { userId_jobId: { userId, jobId: validJobId } },
     select: { id: true },
   });
 
@@ -178,7 +185,7 @@ export async function applyToJob(
     return { success: false, alreadyApplied: true, error: "Already applied" };
   }
 
-  await db.application.create({ data: { userId, jobId } });
+  await db.application.create({ data: { userId, jobId: validJobId } });
   revalidatePath("/applications");
   return { success: true };
 }
@@ -189,10 +196,11 @@ export async function getUserApplicationStatuses(
   jobIds: string[]
 ): Promise<Record<string, string>> {
   const { userId } = await auth();
-  if (!userId || jobIds.length === 0) return {};
+  const validJobIds = z.array(IdSchema).parse(jobIds);
+  if (!userId || validJobIds.length === 0) return {};
 
   const applications = await db.application.findMany({
-    where: { userId, jobId: { in: jobIds } },
+    where: { userId, jobId: { in: validJobIds } },
     select: { jobId: true, status: true },
   });
 
@@ -204,6 +212,7 @@ export async function getUserApplicationStatuses(
 export async function getRecommendedJobs(
   limit: number = 6
 ): Promise<RecommendedJobsResult> {
+  const safeLimit = z.coerce.number().int().min(1).max(50).default(6).parse(limit);
   const { userId } = await auth();
   if (!userId) {
     return { status: "NO_RESUME", jobs: [], message: "Authentication required." };
@@ -250,7 +259,6 @@ export async function getRecommendedJobs(
   }
 
   // 4. Query pgvector cosine similarity directly in PostgreSQL
-  const safeLimit = Math.min(Math.max(1, limit), 20);
   const results = await db.$queryRaw<
     Array<{ id: string; similarity: number }>
   >`

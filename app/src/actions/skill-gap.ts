@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { createAuditLog } from "@/lib/audit";
 import { AuditAction, AuditEntity } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { IdSchema } from "@/schemas/common";
 import { AnalyzeSkillGapSchema } from "@/schemas/skill-gap";
 import { analyzeSkillGapWithAi } from "@/lib/ai/skill-gap-analyzer";
 import { isTransientGeminiError } from "@/lib/ai/gemini";
@@ -177,10 +178,11 @@ export async function getLatestSkillGap() {
 }
 
 export async function getSkillGapById(id: string) {
+  const validId = IdSchema.parse(id);
   const userId = await requireAuth();
 
   const skillGap = await db.skillGap.findUnique({
-    where: { id },
+    where: { id: validId },
   });
 
   if (!skillGap) return null;
@@ -194,10 +196,11 @@ export async function getSkillGapById(id: string) {
 
 export async function deleteSkillGap(id: string): Promise<{ success: boolean; error?: string }> {
   try {
+    const validId = IdSchema.parse(id);
     const userId = await requireAuth();
 
     const existing = await db.skillGap.findUnique({
-      where: { id },
+      where: { id: validId },
       select: { userId: true },
     });
 
@@ -205,7 +208,7 @@ export async function deleteSkillGap(id: string): Promise<{ success: boolean; er
     if (existing.userId !== userId) return { success: false, error: "Unauthorized." };
 
     await db.skillGap.delete({
-      where: { id },
+      where: { id: validId },
     });
 
     revalidatePath("/skill-gap");

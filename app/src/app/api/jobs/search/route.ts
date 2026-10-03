@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { generateEmbedding, formatEmbeddingForDb } from "@/lib/ai/embeddings";
+import { SemanticSearchSchema } from "@/schemas/job";
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  applyRateLimitHeaders,
+} from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -14,21 +20,6 @@ interface SearchMatchRow {
  */
 async function performSemanticSearch(query: string, limitCount: number) {
   const trimmed = query.trim();
-
-  if (!trimmed || trimmed.length < 2) {
-    return {
-      error: "Search query must be at least 2 characters long.",
-      status: 400,
-    };
-  }
-
-  if (trimmed.length > 500) {
-    return {
-      error: "Search query cannot exceed 500 characters.",
-      status: 400,
-    };
-  }
-
   const safeLimit = Math.min(Math.max(1, limitCount), 50);
 
   // 1. Generate 768-dimensional vector embedding for the query
@@ -129,17 +120,32 @@ async function performSemanticSearch(query: string, limitCount: number) {
 
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const query = searchParams.get("q") ?? searchParams.get("query") ?? "";
-    const limit = parseInt(searchParams.get("limit") ?? "10", 10);
+    const rateLimit = await checkRateLimit(req, "SEARCH");
+    if (!rateLimit.success) {
+      return createRateLimitResponse(rateLimit);
+    }
 
-    const result = await performSemanticSearch(query, isNaN(limit) ? 10 : limit);
+    const { searchParams } = new URL(req.url);
+    const parsed = SemanticSearchSchema.safeParse({
+      query: searchParams.get("q") ?? searchParams.get("query") ?? "",
+      limit: searchParams.get("limit") ?? undefined,
+    });
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || "Invalid search query" },
+        { status: 400 },
+      );
+    }
+
+    const result = await performSemanticSearch(parsed.data.query, parsed.data.limit);
 
     if ("error" in result) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
-    return NextResponse.json(result.data, { status: 200 });
+    const response = NextResponse.json(result.data, { status: 200 });
+    return applyRateLimitHeaders(response, rateLimit);
   } catch (error) {
     console.error("[GET /api/jobs/search] Unexpected error:", error);
     return NextResponse.json(
@@ -153,33 +159,32 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    let body: any;
-    try {
-      body = await req.json();
-    } catch {
+    const rateLimit = await checkRateLimit(req, "SEARCH");
+    if (!rateLimit.success) {
+      return createRateLimitResponse(rateLimit);
+    }
+
+    const rawBody = await req.json().catch(() => ({}));
+    const parsed = SemanticSearchSchema.safeParse({
+      query: rawBody?.query ?? rawBody?.q ?? "",
+      limit: rawBody?.limit ?? undefined,
+    });
+
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid JSON body provided." },
+        { error: parsed.error.issues[0]?.message || "Invalid search query" },
         { status: 400 },
       );
     }
 
-    const query = body?.query ?? body?.q ?? "";
-    const limit = parseInt(body?.limit ?? "10", 10);
-
-    if (typeof query !== "string") {
-      return NextResponse.json(
-        { error: "Search query must be a string." },
-        { status: 400 },
-      );
-    }
-
-    const result = await performSemanticSearch(query, isNaN(limit) ? 10 : limit);
+    const result = await performSemanticSearch(parsed.data.query, parsed.data.limit);
 
     if ("error" in result) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
-    return NextResponse.json(result.data, { status: 200 });
+    const response = NextResponse.json(result.data, { status: 200 });
+    return applyRateLimitHeaders(response, rateLimit);
   } catch (error) {
     console.error("[POST /api/jobs/search] Unexpected error:", error);
     return NextResponse.json(

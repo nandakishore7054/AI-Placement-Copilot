@@ -11,15 +11,17 @@ import { saveJobEmbedding } from "@/lib/ai/embeddings";
 import { AuditAction, AuditEntity } from "@prisma/client";
 import { CreateJobSchema, UpdateJobSchema } from "@/schemas/job";
 import type { CreateJobInput, UpdateJobInput } from "@/schemas/job";
+import { IdSchema } from "@/schemas/common";
 import { revalidatePath } from "next/cache";
 
 export async function createJob(companyId: string, data: CreateJobInput) {
   const userId = await requireAuth();
-  await requireCompanyPermission(userId, companyId, PERMISSIONS.POST_JOB);
+  const validCompanyId = IdSchema.parse(companyId);
+  await requireCompanyPermission(userId, validCompanyId, PERMISSIONS.POST_JOB);
   const parsed = CreateJobSchema.parse(data);
 
   const job = await db.job.create({
-    data: { ...parsed, companyId },
+    data: { ...parsed, companyId: validCompanyId },
   });
 
   // Generate vector embedding for semantic search
@@ -37,7 +39,7 @@ export async function createJob(companyId: string, data: CreateJobInput) {
     entityType: AuditEntity.JOB,
     entityId: job.id,
     userId,
-    metadata: { companyId, title: job.title },
+    metadata: { companyId: validCompanyId, title: job.title },
   });
 
   revalidatePath("/recruiter/jobs");
@@ -51,15 +53,17 @@ export async function updateJob(
   data: UpdateJobInput,
 ) {
   const userId = await requireAuth();
-  await requireCompanyPermission(userId, companyId, PERMISSIONS.EDIT_JOB);
+  const validJobId = IdSchema.parse(jobId);
+  const validCompanyId = IdSchema.parse(companyId);
+  await requireCompanyPermission(userId, validCompanyId, PERMISSIONS.EDIT_JOB);
 
   const existing = await db.job.findUnique({
-    where: { id: jobId },
+    where: { id: validJobId },
     select: { companyId: true },
   });
 
   if (!existing) throw new Error("Job not found.");
-  if (existing.companyId !== companyId) {
+  if (existing.companyId !== validCompanyId) {
     throw new Error("Unauthorized: Job does not belong to this company.");
   }
 
@@ -107,20 +111,22 @@ export async function updateJob(
 
 export async function toggleJobVisibility(jobId: string, companyId: string) {
   const userId = await requireAuth();
-  await requireCompanyPermission(userId, companyId, PERMISSIONS.TOGGLE_JOB_VISIBILITY);
+  const validJobId = IdSchema.parse(jobId);
+  const validCompanyId = IdSchema.parse(companyId);
+  await requireCompanyPermission(userId, validCompanyId, PERMISSIONS.TOGGLE_JOB_VISIBILITY);
 
   const job = await db.job.findUnique({
-    where: { id: jobId },
+    where: { id: validJobId },
     select: { isVisible: true, companyId: true },
   });
 
   if (!job) throw new Error("Job not found.");
-  if (job.companyId !== companyId) {
+  if (job.companyId !== validCompanyId) {
     throw new Error("Unauthorized: Job does not belong to this company.");
   }
 
   const updated = await db.job.update({
-    where: { id: jobId },
+    where: { id: validJobId },
     data: { isVisible: !job.isVisible },
   });
 
@@ -131,26 +137,28 @@ export async function toggleJobVisibility(jobId: string, companyId: string) {
 
 export async function deleteJob(jobId: string, companyId: string) {
   const userId = await requireAuth();
-  await requireCompanyPermission(userId, companyId, PERMISSIONS.DELETE_JOB);
+  const validJobId = IdSchema.parse(jobId);
+  const validCompanyId = IdSchema.parse(companyId);
+  await requireCompanyPermission(userId, validCompanyId, PERMISSIONS.DELETE_JOB);
 
   const existing = await db.job.findUnique({
-    where: { id: jobId },
+    where: { id: validJobId },
     select: { companyId: true, title: true },
   });
 
   if (!existing) throw new Error("Job not found.");
-  if (existing.companyId !== companyId) {
+  if (existing.companyId !== validCompanyId) {
     throw new Error("Unauthorized: Job does not belong to this company.");
   }
 
-  await db.job.delete({ where: { id: jobId } });
+  await db.job.delete({ where: { id: validJobId } });
 
   await createAuditLog({
     action: AuditAction.DELETE,
     entityType: AuditEntity.JOB,
-    entityId: jobId,
+    entityId: validJobId,
     userId,
-    metadata: { companyId, title: existing.title },
+    metadata: { companyId: validCompanyId, title: existing.title },
   });
 
   revalidatePath("/recruiter/jobs");

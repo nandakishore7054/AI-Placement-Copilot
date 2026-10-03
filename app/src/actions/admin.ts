@@ -5,6 +5,14 @@ import { requireUserRole } from "@/lib/auth/helpers";
 import { createAuditLog } from "@/lib/audit";
 import { UserRole, AuditAction, AuditEntity, InterviewStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import {
+  ModerationJobsFilterSchema,
+  AdminUsersFilterSchema,
+  UpdateUserRoleSchema,
+  type ModerationJobsFilterInput,
+  type AdminUsersFilterInput,
+} from "@/schemas/admin";
+import { IdSchema } from "@/schemas/common";
 
 // ─── Platform Analytics ────────────────────────────────────────────────────────
 
@@ -95,14 +103,11 @@ export async function getAdminAnalytics() {
 
 // ─── Content Moderation ────────────────────────────────────────────────────────
 
-export async function getModerationJobs(options: {
-  page?: number;
-  pageSize?: number;
-  search?: string;
-} = {}) {
+export async function getModerationJobs(options: Partial<ModerationJobsFilterInput> = {}) {
   await requireUserRole(UserRole.ADMIN);
 
-  const { page = 1, pageSize = 20, search } = options;
+  const parsed = ModerationJobsFilterSchema.parse(options ?? {});
+  const { page, pageSize, search } = parsed;
 
   const where = search
     ? {
@@ -139,9 +144,10 @@ export async function getModerationJobs(options: {
 
 export async function adminToggleJobVisibility(jobId: string) {
   const adminUserId = await requireUserRole(UserRole.ADMIN);
+  const validJobId = IdSchema.parse(jobId);
 
   const existing = await db.job.findUnique({
-    where: { id: jobId },
+    where: { id: validJobId },
     select: { id: true, title: true, isVisible: true, companyId: true },
   });
 
@@ -150,14 +156,14 @@ export async function adminToggleJobVisibility(jobId: string) {
   }
 
   const updated = await db.job.update({
-    where: { id: jobId },
+    where: { id: validJobId },
     data: { isVisible: !existing.isVisible },
   });
 
   await createAuditLog({
     action: AuditAction.UPDATE,
     entityType: AuditEntity.JOB,
-    entityId: jobId,
+    entityId: validJobId,
     userId: adminUserId,
     metadata: {
       action: "ADMIN_MODERATION_TOGGLE_VISIBILITY",
@@ -170,21 +176,17 @@ export async function adminToggleJobVisibility(jobId: string) {
 
   revalidatePath("/admin/dashboard");
   revalidatePath("/jobs");
-  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath(`/jobs/${validJobId}`);
   return updated;
 }
 
 // ─── User Administration ────────────────────────────────────────────────────────
 
-export async function getAdminUsers(options: {
-  page?: number;
-  pageSize?: number;
-  role?: UserRole;
-  search?: string;
-} = {}) {
+export async function getAdminUsers(options: Partial<AdminUsersFilterInput> = {}) {
   await requireUserRole(UserRole.ADMIN);
 
-  const { page = 1, pageSize = 25, role, search } = options;
+  const parsed = AdminUsersFilterSchema.parse(options ?? {});
+  const { page, pageSize, role, search } = parsed;
 
   const where = {
     ...(role && { role }),
@@ -230,14 +232,15 @@ export async function getAdminUsers(options: {
 
 export async function updateUserRoleByAdmin(targetUserId: string, newRole: UserRole) {
   const adminUserId = await requireUserRole(UserRole.ADMIN);
+  const parsed = UpdateUserRoleSchema.parse({ targetUserId, newRole });
 
   // Prevent demoting the last active admin
-  if (newRole !== UserRole.ADMIN) {
+  if (parsed.newRole !== UserRole.ADMIN) {
     const adminCount = await db.user.count({
       where: { role: UserRole.ADMIN },
     });
     const targetUser = await db.user.findUnique({
-      where: { id: targetUserId },
+      where: { id: parsed.targetUserId },
       select: { role: true, email: true },
     });
 
@@ -247,18 +250,18 @@ export async function updateUserRoleByAdmin(targetUserId: string, newRole: UserR
   }
 
   const updatedUser = await db.user.update({
-    where: { id: targetUserId },
-    data: { role: newRole },
+    where: { id: parsed.targetUserId },
+    data: { role: parsed.newRole },
   });
 
   await createAuditLog({
     action: AuditAction.UPDATE,
     entityType: AuditEntity.USER,
-    entityId: targetUserId,
+    entityId: parsed.targetUserId,
     userId: adminUserId,
     metadata: {
       action: "ADMIN_UPDATE_USER_ROLE",
-      newRole,
+      newRole: parsed.newRole,
     },
   });
 

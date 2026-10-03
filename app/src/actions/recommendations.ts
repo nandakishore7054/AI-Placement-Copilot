@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { createAuditLog } from "@/lib/audit";
 import { AuditAction, AuditEntity } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { IdSchema } from "@/schemas/common";
 import { generateRecommendationsWithAi } from "@/lib/ai/recommendation-engine";
 import { isTransientGeminiError } from "@/lib/ai/gemini";
 
@@ -37,10 +38,11 @@ export async function getRecommendations() {
 
 export async function actionRecommendation(recommendationId: string) {
   try {
+    const validId = IdSchema.parse(recommendationId);
     const userId = await requireAuth();
 
     const rec = await db.recommendation.findUnique({
-      where: { id: recommendationId },
+      where: { id: validId },
       select: { userId: true },
     });
 
@@ -48,7 +50,7 @@ export async function actionRecommendation(recommendationId: string) {
     if (rec.userId !== userId) return { success: false, error: "Unauthorized." };
 
     await db.recommendation.update({
-      where: { id: recommendationId },
+      where: { id: validId },
       data: { isActioned: true },
     });
 
@@ -64,10 +66,11 @@ export async function actionRecommendation(recommendationId: string) {
 
 export async function dismissRecommendation(recommendationId: string) {
   try {
+    const validId = IdSchema.parse(recommendationId);
     const userId = await requireAuth();
 
     const rec = await db.recommendation.findUnique({
-      where: { id: recommendationId },
+      where: { id: validId },
       select: { userId: true },
     });
 
@@ -75,7 +78,7 @@ export async function dismissRecommendation(recommendationId: string) {
     if (rec.userId !== userId) return { success: false, error: "Unauthorized." };
 
     await db.recommendation.update({
-      where: { id: recommendationId },
+      where: { id: validId },
       data: { isDismissed: true },
     });
 

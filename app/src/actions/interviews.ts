@@ -4,8 +4,14 @@ import { requireAuth } from "@/lib/auth/helpers";
 import { db } from "@/lib/db";
 import { createAuditLog } from "@/lib/audit";
 import { AuditAction, AuditEntity, InterviewStatus } from "@prisma/client";
-import { CreateInterviewSchema } from "@/schemas/interview";
+import {
+  CreateInterviewSchema,
+  UpdateInterviewStatusSchema,
+  SaveTranscriptSchema,
+} from "@/schemas/interview";
 import type { CreateInterviewInput } from "@/schemas/interview";
+import { IdSchema } from "@/schemas/common";
+import { z } from "zod";
 import { generateInterviewQuestions } from "@/lib/ai/interview-questions";
 import { revalidatePath } from "next/cache";
 
@@ -85,10 +91,12 @@ export async function updateInterviewStatus(
   interviewId: string,
   status: InterviewStatus,
 ) {
+  const { interviewId: validInterviewId, status: validStatus } =
+    UpdateInterviewStatusSchema.parse({ interviewId, status });
   const userId = await requireAuth();
 
   const existing = await db.interview.findUnique({
-    where: { id: interviewId },
+    where: { id: validInterviewId },
     select: { userId: true },
   });
 
@@ -96,11 +104,11 @@ export async function updateInterviewStatus(
   if (existing.userId !== userId) throw new Error("Unauthorized.");
 
   const updated = await db.interview.update({
-    where: { id: interviewId },
-    data: { status },
+    where: { id: validInterviewId },
+    data: { status: validStatus },
   });
 
-  revalidatePath(`/interviews/${interviewId}`);
+  revalidatePath(`/interviews/${validInterviewId}`);
   revalidatePath("/interviews");
   return updated;
 }
@@ -124,10 +132,11 @@ export async function getUserInterviews() {
 // ─── Get Single Interview by ID (Ownership Enforced) ──────────────────────────
 
 export async function getInterview(interviewId: string) {
+  const validInterviewId = IdSchema.parse(interviewId);
   const userId = await requireAuth();
 
   const interview = await db.interview.findUnique({
-    where: { id: interviewId },
+    where: { id: validInterviewId },
     include: {
       questions: { orderBy: { orderIndex: "asc" } },
       feedback: true,
@@ -153,10 +162,11 @@ export async function saveTranscript(
   transcript: string,
   duration?: number,
 ) {
+  const parsed = SaveTranscriptSchema.parse({ interviewId, transcript, duration });
   const userId = await requireAuth();
 
   const interview = await db.interview.findUnique({
-    where: { id: interviewId },
+    where: { id: parsed.interviewId },
     select: { userId: true },
   });
 
@@ -164,10 +174,10 @@ export async function saveTranscript(
   if (interview.userId !== userId) throw new Error("Unauthorized.");
 
   const updated = await db.interview.update({
-    where: { id: interviewId },
+    where: { id: parsed.interviewId },
     data: {
-      transcript,
-      duration,
+      transcript: parsed.transcript,
+      duration: parsed.duration,
       status: InterviewStatus.COMPLETED,
     },
   });
@@ -175,12 +185,12 @@ export async function saveTranscript(
   await createAuditLog({
     action: AuditAction.UPDATE,
     entityType: AuditEntity.INTERVIEW,
-    entityId: interviewId,
+    entityId: parsed.interviewId,
     userId,
-    metadata: { action: "save_transcript", duration },
+    metadata: { action: "save_transcript", duration: parsed.duration },
   });
 
-  revalidatePath(`/interviews/${interviewId}`);
+  revalidatePath(`/interviews/${parsed.interviewId}`);
   revalidatePath("/interviews");
   return updated;
 }
@@ -188,10 +198,11 @@ export async function saveTranscript(
 // ─── Delete Interview ─────────────────────────────────────────────────────────
 
 export async function deleteInterview(interviewId: string) {
+  const validInterviewId = IdSchema.parse(interviewId);
   const userId = await requireAuth();
 
   const existing = await db.interview.findUnique({
-    where: { id: interviewId },
+    where: { id: validInterviewId },
     select: { userId: true, role: true },
   });
 
@@ -199,13 +210,13 @@ export async function deleteInterview(interviewId: string) {
   if (existing.userId !== userId) throw new Error("Unauthorized.");
 
   await db.interview.delete({
-    where: { id: interviewId },
+    where: { id: validInterviewId },
   });
 
   await createAuditLog({
     action: AuditAction.DELETE,
     entityType: AuditEntity.INTERVIEW,
-    entityId: interviewId,
+    entityId: validInterviewId,
     userId,
     metadata: { role: existing.role },
   });
@@ -219,6 +230,8 @@ export async function deleteInterview(interviewId: string) {
 // ─── Get Public/Community Interviews ──────────────────────────────────────────
 
 export async function getLatestInterviews(limit = 10) {
+  const validLimit = z.coerce.number().int().min(1).max(50).default(10).parse(limit);
+
   return db.interview.findMany({
     where: { status: InterviewStatus.COMPLETED },
     include: {
@@ -227,6 +240,6 @@ export async function getLatestInterviews(limit = 10) {
       _count: { select: { questions: true } },
     },
     orderBy: { createdAt: "desc" },
-    take: Math.min(limit, 50),
+    take: validLimit,
   });
 }

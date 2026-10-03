@@ -5,8 +5,13 @@ import { requireCompanyPermission, PERMISSIONS } from "@/lib/auth/rbac";
 import { db } from "@/lib/db";
 import { createAuditLog } from "@/lib/audit";
 import { AuditAction, AuditEntity, JobLevel } from "@prisma/client";
-import { CreateExperienceSchema, UpdateExperienceSchema } from "@/schemas/experience";
+import {
+  CreateExperienceSchema,
+  UpdateExperienceSchema,
+  ExperienceFiltersSchema,
+} from "@/schemas/experience";
 import type { CreateExperienceInput, UpdateExperienceInput } from "@/schemas/experience";
+import { IdSchema } from "@/schemas/common";
 import { revalidatePath } from "next/cache";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
 
@@ -48,7 +53,8 @@ export interface ExperienceListResult {
 export async function getExperiences(
   filters: ExperienceFilters = {},
 ): Promise<ExperienceListResult> {
-  const { search, category, level, page = 1, pageSize = DEFAULT_PAGE_SIZE } = filters;
+  const parsedFilters = ExperienceFiltersSchema.parse(filters ?? {});
+  const { search, category, level, page, pageSize } = parsedFilters;
 
   const where = {
     isVisible: true,
@@ -100,8 +106,9 @@ export async function getExperiences(
 }
 
 export async function getExperienceById(experienceId: string) {
+  const validExperienceId = IdSchema.parse(experienceId);
   return db.experience.findFirst({
-    where: { id: experienceId, isVisible: true },
+    where: { id: validExperienceId, isVisible: true },
     include: {
       company: {
         select: {
@@ -123,10 +130,11 @@ export async function getExperienceById(experienceId: string) {
 
 export async function getRecruiterExperiences(companyId: string) {
   const userId = await requireAuth();
-  await requireCompanyPermission(userId, companyId, PERMISSIONS.VIEW_DASHBOARD);
+  const validCompanyId = IdSchema.parse(companyId);
+  await requireCompanyPermission(userId, validCompanyId, PERMISSIONS.VIEW_DASHBOARD);
 
   return db.experience.findMany({
-    where: { companyId },
+    where: { companyId: validCompanyId },
     include: {
       company: {
         select: {
@@ -143,14 +151,16 @@ export async function getRecruiterExperiences(companyId: string) {
 
 export async function getRecruiterExperienceById(experienceId: string, companyId: string) {
   const userId = await requireAuth();
-  await requireCompanyPermission(userId, companyId, PERMISSIONS.VIEW_DASHBOARD);
+  const validExperienceId = IdSchema.parse(experienceId);
+  const validCompanyId = IdSchema.parse(companyId);
+  await requireCompanyPermission(userId, validCompanyId, PERMISSIONS.VIEW_DASHBOARD);
 
   const experience = await db.experience.findUnique({
-    where: { id: experienceId },
+    where: { id: validExperienceId },
     include: { company: true },
   });
 
-  if (!experience || experience.companyId !== companyId) {
+  if (!experience || experience.companyId !== validCompanyId) {
     return null;
   }
 
@@ -159,11 +169,12 @@ export async function getRecruiterExperienceById(experienceId: string, companyId
 
 export async function createExperience(companyId: string, data: CreateExperienceInput) {
   const userId = await requireAuth();
-  await requireCompanyPermission(userId, companyId, PERMISSIONS.POST_EXPERIENCE);
+  const validCompanyId = IdSchema.parse(companyId);
+  await requireCompanyPermission(userId, validCompanyId, PERMISSIONS.POST_EXPERIENCE);
   const parsed = CreateExperienceSchema.parse(data);
 
   const experience = await db.experience.create({
-    data: { ...parsed, companyId },
+    data: { ...parsed, companyId: validCompanyId },
   });
 
   await createAuditLog({
@@ -171,7 +182,7 @@ export async function createExperience(companyId: string, data: CreateExperience
     entityType: AuditEntity.EXPERIENCE,
     entityId: experience.id,
     userId,
-    metadata: { companyId, title: parsed.title },
+    metadata: { companyId: validCompanyId, title: parsed.title },
   });
 
   revalidatePath("/recruiter/experiences");
@@ -185,56 +196,60 @@ export async function updateExperience(
   data: UpdateExperienceInput,
 ) {
   const userId = await requireAuth();
-  await requireCompanyPermission(userId, companyId, PERMISSIONS.EDIT_EXPERIENCE);
+  const validExperienceId = IdSchema.parse(experienceId);
+  const validCompanyId = IdSchema.parse(companyId);
+  await requireCompanyPermission(userId, validCompanyId, PERMISSIONS.EDIT_EXPERIENCE);
 
   const existing = await db.experience.findUnique({
-    where: { id: experienceId },
+    where: { id: validExperienceId },
     select: { companyId: true },
   });
 
   if (!existing) throw new Error("Experience not found.");
-  if (existing.companyId !== companyId) {
+  if (existing.companyId !== validCompanyId) {
     throw new Error("Unauthorized: Experience does not belong to this company.");
   }
 
   const parsed = UpdateExperienceSchema.parse(data);
 
   const experience = await db.experience.update({
-    where: { id: experienceId },
+    where: { id: validExperienceId },
     data: parsed,
   });
 
   await createAuditLog({
     action: AuditAction.UPDATE,
     entityType: AuditEntity.EXPERIENCE,
-    entityId: experienceId,
+    entityId: validExperienceId,
     userId,
-    metadata: { companyId, changes: Object.keys(parsed) },
+    metadata: { companyId: validCompanyId, changes: Object.keys(parsed) },
   });
 
   revalidatePath("/recruiter/experiences");
-  revalidatePath(`/recruiter/experiences/${experienceId}/edit`);
+  revalidatePath(`/recruiter/experiences/${validExperienceId}/edit`);
   revalidatePath("/experiences");
-  revalidatePath(`/experiences/${experienceId}`);
+  revalidatePath(`/experiences/${validExperienceId}`);
   return experience;
 }
 
 export async function toggleExperienceVisibility(experienceId: string, companyId: string) {
   const userId = await requireAuth();
-  await requireCompanyPermission(userId, companyId, PERMISSIONS.EDIT_EXPERIENCE);
+  const validExperienceId = IdSchema.parse(experienceId);
+  const validCompanyId = IdSchema.parse(companyId);
+  await requireCompanyPermission(userId, validCompanyId, PERMISSIONS.EDIT_EXPERIENCE);
 
   const existing = await db.experience.findUnique({
-    where: { id: experienceId },
+    where: { id: validExperienceId },
     select: { isVisible: true, companyId: true },
   });
 
   if (!existing) throw new Error("Experience not found.");
-  if (existing.companyId !== companyId) {
+  if (existing.companyId !== validCompanyId) {
     throw new Error("Unauthorized: Experience does not belong to this company.");
   }
 
   const updated = await db.experience.update({
-    where: { id: experienceId },
+    where: { id: validExperienceId },
     data: { isVisible: !existing.isVisible },
   });
 
@@ -245,26 +260,28 @@ export async function toggleExperienceVisibility(experienceId: string, companyId
 
 export async function deleteExperience(experienceId: string, companyId: string) {
   const userId = await requireAuth();
-  await requireCompanyPermission(userId, companyId, PERMISSIONS.EDIT_EXPERIENCE);
+  const validExperienceId = IdSchema.parse(experienceId);
+  const validCompanyId = IdSchema.parse(companyId);
+  await requireCompanyPermission(userId, validCompanyId, PERMISSIONS.EDIT_EXPERIENCE);
 
   const existing = await db.experience.findUnique({
-    where: { id: experienceId },
+    where: { id: validExperienceId },
     select: { companyId: true, title: true },
   });
 
   if (!existing) throw new Error("Experience not found.");
-  if (existing.companyId !== companyId) {
+  if (existing.companyId !== validCompanyId) {
     throw new Error("Unauthorized: Experience does not belong to this company.");
   }
 
-  await db.experience.delete({ where: { id: experienceId } });
+  await db.experience.delete({ where: { id: validExperienceId } });
 
   await createAuditLog({
     action: AuditAction.DELETE,
     entityType: AuditEntity.EXPERIENCE,
-    entityId: experienceId,
+    entityId: validExperienceId,
     userId,
-    metadata: { companyId, title: existing.title },
+    metadata: { companyId: validCompanyId, title: existing.title },
   });
 
   revalidatePath("/recruiter/experiences");

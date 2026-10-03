@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { createAuditLog } from "@/lib/audit";
 import { AuditAction, AuditEntity } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { IdSchema } from "@/schemas/common";
+import { z } from "zod";
 import { generateInterviewFeedback } from "@/lib/ai/interview-feedback";
 import { isTransientGeminiError } from "@/lib/ai/gemini";
 
@@ -32,10 +34,12 @@ export async function generateFeedback(
   forceRegenerate: boolean = false,
 ): Promise<GenerateFeedbackResult> {
   try {
+    const validInterviewId = IdSchema.parse(interviewId);
+    const validForceRegenerate = z.boolean().default(false).parse(forceRegenerate);
     const userId = await requireAuth();
 
     const interview = await db.interview.findUnique({
-      where: { id: interviewId },
+      where: { id: validInterviewId },
       include: {
         questions: { orderBy: { orderIndex: "asc" } },
         feedback: true,
@@ -57,7 +61,7 @@ export async function generateFeedback(
     }
 
     // Idempotent guard: return existing feedback if not forcing regeneration
-    if (interview.feedback && !forceRegenerate) {
+    if (interview.feedback && !validForceRegenerate) {
       return {
         success: true,
         feedback: interview.feedback,
@@ -87,7 +91,7 @@ export async function generateFeedback(
 
     // Call Gemini structured feedback generator (with bounded exponential backoff & model failover)
     const aiFeedback = await generateInterviewFeedback(
-      interviewId,
+      validInterviewId,
       interview.transcript,
       interview.questions,
       {
@@ -99,9 +103,9 @@ export async function generateFeedback(
 
     // Persist using upsert to guarantee idempotency and avoid duplicates
     const feedback = await db.feedback.upsert({
-      where: { interviewId },
+      where: { interviewId: validInterviewId },
       create: {
-        interviewId,
+        interviewId: validInterviewId,
         userId,
         totalScore: aiFeedback.totalScore,
         categoryScores: aiFeedback.categoryScores,
@@ -127,14 +131,14 @@ export async function generateFeedback(
       entityId: feedback.id,
       userId,
       metadata: {
-        interviewId,
+        interviewId: validInterviewId,
         totalScore: feedback.totalScore,
-        regenerated: Boolean(forceRegenerate && interview.feedback),
+        regenerated: Boolean(validForceRegenerate && interview.feedback),
       },
     });
 
-    revalidatePath(`/interviews/${interviewId}`);
-    revalidatePath(`/interviews/${interviewId}/feedback`);
+    revalidatePath(`/interviews/${validInterviewId}`);
+    revalidatePath(`/interviews/${validInterviewId}/feedback`);
     revalidatePath("/interviews");
 
     return {
@@ -162,10 +166,11 @@ export async function generateFeedback(
 // ─── Get Feedback by Interview ID ─────────────────────────────────────────────
 
 export async function getFeedback(interviewId: string) {
+  const validInterviewId = IdSchema.parse(interviewId);
   const userId = await requireAuth();
 
   const feedback = await db.feedback.findUnique({
-    where: { interviewId },
+    where: { interviewId: validInterviewId },
     include: {
       interview: {
         include: {

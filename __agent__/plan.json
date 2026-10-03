@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "items": [
+    {
+      "title": "Define UI polish acceptance criteria and inspect style primitives",
+      "status": "done"
+    },
+    {
+      "title": "Apply global design-token and typography refinements",
+      "status": "in-progress"
+    },
+    {
+      "title": "Polish shared UI, navigation, cards, forms, and controls",
+      "status": "pending"
+    },
+    {
+      "title": "Run lint, typecheck, and production build checks",
+      "status": "pending"
+    },
+    {
+      "title": "Summarize visual changes and verification",
+      "status": "pending"
+    }
+  ],
+  "updated_at": "2026-10-02T11:10:57.800Z",
+  "session_id": "01a0fc23-1188-74a5-83b8-9fa5b9165c9f"
+}

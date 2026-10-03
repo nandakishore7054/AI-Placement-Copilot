@@ -5,6 +5,11 @@ import { SubscribeSchema, UnsubscribeSchema } from "@/schemas/subscription";
 import { sendWelcomeEmail } from "@/lib/email";
 import { createAuditLog } from "@/lib/audit";
 import { AuditAction, AuditEntity } from "@prisma/client";
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  applyRateLimitHeaders,
+} from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +17,11 @@ export const dynamic = "force-dynamic";
 // Handles public & authenticated subscriptions, and supports action: "unsubscribe"
 export async function POST(req: NextRequest) {
   try {
+    const rateLimit = await checkRateLimit(req, "SUBSCRIBE");
+    if (!rateLimit.success) {
+      return createRateLimitResponse(rateLimit);
+    }
+
     const body = await req.json().catch(() => ({}));
     const action = body?.action === "unsubscribe" ? "unsubscribe" : "subscribe";
 
@@ -101,10 +111,11 @@ export async function POST(req: NextRequest) {
     // Send welcome email safely (never blocks or crashes)
     void sendWelcomeEmail(email);
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       { message: "Subscribed successfully", id: subscription.id },
       { status: 200 },
     );
+    return applyRateLimitHeaders(response, rateLimit);
   } catch (error) {
     console.error("[POST /api/subscribe]", error);
     return NextResponse.json(
@@ -118,6 +129,11 @@ export async function POST(req: NextRequest) {
 // RESTful unsubscribe endpoint
 export async function DELETE(req: NextRequest) {
   try {
+    const rateLimit = await checkRateLimit(req, "SUBSCRIBE");
+    if (!rateLimit.success) {
+      return createRateLimitResponse(rateLimit);
+    }
+
     const { userId } = await auth();
     const body = await req.json().catch(() => ({}));
     const emailParam = body?.email ?? new URL(req.url).searchParams.get("email");
@@ -160,10 +176,11 @@ export async function DELETE(req: NextRequest) {
       metadata: { email, action: "unsubscribe" },
     });
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       { message: "Unsubscribed successfully", id: existing.id },
       { status: 200 },
     );
+    return applyRateLimitHeaders(response, rateLimit);
   } catch (error) {
     console.error("[DELETE /api/subscribe]", error);
     return NextResponse.json(

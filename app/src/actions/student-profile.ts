@@ -14,6 +14,7 @@ import type {
   StudentProfileInput,
   UpdateStudentProfileInput,
 } from "@/schemas/student-profile";
+import { IdSchema } from "@/schemas/common";
 import { revalidatePath } from "next/cache";
 
 // ─── Create ───────────────────────────────────────────────────────────────────
@@ -101,9 +102,10 @@ export async function getStudentProfile() {
  */
 export async function getStudentProfileById(targetUserId: string) {
   await requireAuth();
+  const validUserId = IdSchema.parse(targetUserId);
 
   return db.studentProfile.findUnique({
-    where: { userId: targetUserId },
+    where: { userId: validUserId },
     include: {
       user: {
         select: {

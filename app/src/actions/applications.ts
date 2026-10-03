@@ -13,18 +13,26 @@ import { createAuditLog } from "@/lib/audit";
 import { AuditAction, AuditEntity, ApplicationStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { sendApplicationStatusEmail } from "@/lib/email";
+import {
+  ApplyJobSchema,
+  UpdateApplicationStatusSchema,
+  WithdrawApplicationSchema,
+  GetRecruiterApplicationsFilterSchema,
+} from "@/schemas/application";
+import { IdSchema } from "@/schemas/common";
 
 export async function applyForJob(jobId: string) {
   const userId = await requireAuth();
+  const { jobId: validatedJobId } = ApplyJobSchema.parse({ jobId });
 
   // Check for duplicate application
   const existing = await db.application.findUnique({
-    where: { userId_jobId: { userId, jobId } },
+    where: { userId_jobId: { userId, jobId: validatedJobId } },
   });
   if (existing) throw new Error("You have already applied for this job.");
 
   const application = await db.application.create({
-    data: { userId, jobId },
+    data: { userId, jobId: validatedJobId },
   });
 
   await createAuditLog({
@@ -32,7 +40,7 @@ export async function applyForJob(jobId: string) {
     entityType: AuditEntity.APPLICATION,
     entityId: application.id,
     userId,
-    metadata: { jobId },
+    metadata: { jobId: validatedJobId },
   });
 
   revalidatePath("/applications");
@@ -57,9 +65,10 @@ export async function getUserApplications() {
 
 export async function getApplicationById(applicationId: string) {
   const userId = await requireAuth();
+  const validAppId = IdSchema.parse(applicationId);
 
   const application = await db.application.findUnique({
-    where: { id: applicationId },
+    where: { id: validAppId },
     include: {
       job: {
         include: {
@@ -94,12 +103,13 @@ export async function getApplicationById(applicationId: string) {
 
 export async function getRecruiterApplications(companyId?: string, jobId?: string) {
   const userId = await requireAuth();
+  const filters = GetRecruiterApplicationsFilterSchema.parse({ companyId, jobId });
 
   // Find membership
   let member;
-  if (companyId) {
+  if (filters.companyId) {
     member = await db.companyMember.findUnique({
-      where: { userId_companyId: { userId, companyId } },
+      where: { userId_companyId: { userId, companyId: filters.companyId } },
       include: { company: true },
     });
   } else {
@@ -125,7 +135,7 @@ export async function getRecruiterApplications(companyId?: string, jobId?: strin
     where: {
       job: {
         companyId: targetCompanyId,
-        ...(jobId && { id: jobId }),
+        ...(filters.jobId && { id: filters.jobId }),
       },
     },
     include: {
@@ -175,9 +185,10 @@ export async function getRecruiterApplications(companyId?: string, jobId?: strin
 
 export async function getRecruiterApplicationById(applicationId: string) {
   const userId = await requireAuth();
+  const validAppId = IdSchema.parse(applicationId);
 
   const application = await db.application.findUnique({
-    where: { id: applicationId },
+    where: { id: validAppId },
     include: {
       job: {
         include: {
@@ -222,11 +233,18 @@ export async function updateApplicationStatus(
   notes?: string,
 ) {
   const userId = await requireAuth();
-  await requireCompanyPermission(userId, companyId, PERMISSIONS.UPDATE_APPLICATION_STATUS);
+  const valid = UpdateApplicationStatusSchema.parse({
+    applicationId,
+    companyId,
+    status,
+    notes,
+  });
+
+  await requireCompanyPermission(userId, valid.companyId, PERMISSIONS.UPDATE_APPLICATION_STATUS);
 
   // Verify that the application actually belongs to a job from this company
   const existingApp = await db.application.findUnique({
-    where: { id: applicationId },
+    where: { id: valid.applicationId },
     include: {
       job: {
         select: {
@@ -248,28 +266,28 @@ export async function updateApplicationStatus(
   });
 
   if (!existingApp) throw new Error("Application not found.");
-  if (existingApp.job.companyId !== companyId) {
+  if (existingApp.job.companyId !== valid.companyId) {
     throw new Error("Unauthorized: Application does not belong to this company.");
   }
 
   const oldStatus = existingApp.status;
-  const isStatusChanged = oldStatus !== status;
+  const isStatusChanged = oldStatus !== valid.status;
 
   const application = await db.application.update({
-    where: { id: applicationId },
-    data: { status, ...(notes !== undefined && { notes }) },
+    where: { id: valid.applicationId },
+    data: { status: valid.status, ...(valid.notes !== undefined && { notes: valid.notes }) },
   });
 
   await createAuditLog({
     action: AuditAction.STATUS_CHANGE,
     entityType: AuditEntity.APPLICATION,
-    entityId: applicationId,
+    entityId: valid.applicationId,
     userId,
     metadata: {
       oldStatus,
-      newStatus: status,
-      notes: notes || null,
-      companyId,
+      newStatus: valid.status,
+      notes: valid.notes || null,
+      companyId: valid.companyId,
     },
   });
 
@@ -313,9 +331,10 @@ export async function updateApplicationStatus(
 
 export async function withdrawApplication(applicationId: string) {
   const userId = await requireAuth();
+  const { applicationId: validAppId } = WithdrawApplicationSchema.parse({ applicationId });
 
   const application = await db.application.findUnique({
-    where: { id: applicationId },
+    where: { id: validAppId },
     select: { userId: true, status: true, jobId: true },
   });
 
@@ -329,14 +348,14 @@ export async function withdrawApplication(applicationId: string) {
   }
 
   const updated = await db.application.update({
-    where: { id: applicationId },
+    where: { id: validAppId },
     data: { status: ApplicationStatus.WITHDRAWN },
   });
 
   await createAuditLog({
     action: AuditAction.STATUS_CHANGE,
     entityType: AuditEntity.APPLICATION,
-    entityId: applicationId,
+    entityId: validAppId,
     userId,
     metadata: {
       oldStatus: application.status,
@@ -346,6 +365,6 @@ export async function withdrawApplication(applicationId: string) {
   });
 
   revalidatePath("/applications");
-  revalidatePath(`/applications/${applicationId}`);
+  revalidatePath(`/applications/${validAppId}`);
   return updated;
 }

@@ -5,7 +5,13 @@ import { db } from "@/lib/db";
 import { createAuditLog } from "@/lib/audit";
 import { AuditAction, AuditEntity, InsightCategory, JobLevel } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { GenerateRoadmapSchema, type GenerateRoadmapInput } from "@/schemas/career";
+import {
+  GenerateRoadmapSchema,
+  UpdateMilestoneSchema,
+  CareerInsightsFilterSchema,
+  type GenerateRoadmapInput,
+} from "@/schemas/career";
+import { IdSchema } from "@/schemas/common";
 import { generateCareerRoadmapWithAi } from "@/lib/ai/career-roadmap-generator";
 import { isTransientGeminiError } from "@/lib/ai/gemini";
 
@@ -201,10 +207,11 @@ export async function getActiveCareerRoadmap() {
 }
 
 export async function getCareerRoadmapById(id: string) {
+  const validId = IdSchema.parse(id);
   const userId = await requireAuth();
 
   const roadmap = await db.careerRoadmap.findUnique({
-    where: { id },
+    where: { id: validId },
   });
 
   if (!roadmap) return null;
@@ -223,10 +230,15 @@ export async function updateRoadmapProgress(
   completed: boolean,
 ) {
   try {
+    const valid = UpdateMilestoneSchema.parse({
+      roadmapId,
+      milestoneIndex,
+      completed,
+    });
     const userId = await requireAuth();
 
     const roadmap = await db.careerRoadmap.findUnique({
-      where: { id: roadmapId },
+      where: { id: valid.roadmapId },
       select: { userId: true, milestones: true, progress: true },
     });
 
@@ -237,20 +249,20 @@ export async function updateRoadmapProgress(
       ? [...(roadmap.milestones as any[])]
       : [];
 
-    if (milestoneIndex < 0 || milestoneIndex >= milestones.length) {
+    if (valid.milestoneIndex < 0 || valid.milestoneIndex >= milestones.length) {
       return { success: false, error: "Invalid milestone index." };
     }
 
-    milestones[milestoneIndex] = {
-      ...milestones[milestoneIndex],
-      completed,
+    milestones[valid.milestoneIndex] = {
+      ...milestones[valid.milestoneIndex],
+      completed: valid.completed,
     };
 
     const completedCount = milestones.filter((m) => m.completed).length;
     const progress = Math.round((completedCount / milestones.length) * 100);
 
     const updated = await db.careerRoadmap.update({
-      where: { id: roadmapId },
+      where: { id: valid.roadmapId },
       data: {
         milestones: milestones as any,
         progress,
@@ -260,9 +272,9 @@ export async function updateRoadmapProgress(
     await createAuditLog({
       action: AuditAction.UPDATE,
       entityType: AuditEntity.CAREER_ROADMAP,
-      entityId: roadmapId,
+      entityId: valid.roadmapId,
       userId,
-      metadata: { milestoneIndex, completed, progress },
+      metadata: { milestoneIndex: valid.milestoneIndex, completed: valid.completed, progress },
     });
 
     revalidatePath("/career");
@@ -277,17 +289,18 @@ export async function updateRoadmapProgress(
 
 export async function deleteCareerRoadmap(id: string) {
   try {
+    const validId = IdSchema.parse(id);
     const userId = await requireAuth();
 
     const roadmap = await db.careerRoadmap.findUnique({
-      where: { id },
+      where: { id: validId },
       select: { userId: true },
     });
 
     if (!roadmap) return { success: false, error: "Roadmap not found." };
     if (roadmap.userId !== userId) return { success: false, error: "Unauthorized." };
 
-    await db.careerRoadmap.delete({ where: { id } });
+    await db.careerRoadmap.delete({ where: { id: validId } });
 
     revalidatePath("/career");
     revalidatePath("/dashboard");
@@ -302,6 +315,11 @@ export async function deleteCareerRoadmap(id: string) {
 // ─── Career Insights Query & Auto-Seeding ─────────────────────────────────────
 
 export async function getCareerInsights(category?: InsightCategory, limit = 20) {
+  const parsedFilters = CareerInsightsFilterSchema.parse({
+    category: category || undefined,
+    limit,
+  });
+
   // Check if any insights exist in the database
   let count = await db.careerInsight.count();
 
@@ -356,9 +374,9 @@ export async function getCareerInsights(category?: InsightCategory, limit = 20) 
   return db.careerInsight.findMany({
     where: {
       isPublished: true,
-      ...(category ? { category } : {}),
+      ...(parsedFilters.category ? { category: parsedFilters.category } : {}),
     },
     orderBy: { createdAt: "desc" },
-    take: Math.min(limit, 50),
+    take: parsedFilters.limit,
   });
 }

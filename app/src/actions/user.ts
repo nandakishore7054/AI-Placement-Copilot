@@ -9,15 +9,19 @@ import { StudentProfileSchema } from "@/schemas/student-profile";
 import { CreateCompanySchema } from "@/schemas/company";
 import type { StudentProfileInput } from "@/schemas/student-profile";
 import type { CreateCompanyInput } from "@/schemas/company";
+import { z } from "zod";
+
+const UserRoleSchema = z.nativeEnum(UserRole);
 
 // ─── Sync user role from Clerk (called after onboarding) ─────────────────────
 
 export async function syncUserRole(role: UserRole) {
+  const validRole = UserRoleSchema.parse(role);
   const userId = await requireAuth();
 
   await db.user.update({
     where: { id: userId },
-    data: { role, onboardingDone: true },
+    data: { role: validRole, onboardingDone: true },
   });
 
   await createAuditLog({
@@ -25,7 +29,7 @@ export async function syncUserRole(role: UserRole) {
     entityType: AuditEntity.USER,
     entityId: userId,
     userId,
-    metadata: { role },
+    metadata: { role: validRole },
   });
 
   revalidatePath("/dashboard");
@@ -124,11 +128,12 @@ export async function completeRecruiterOnboarding(data: CreateCompanyInput) {
 // ─── Generic onboarding role setter (fallback) ────────────────────────────────
 
 export async function completeOnboarding(role: UserRole) {
+  const validRole = UserRoleSchema.parse(role);
   const userId = await requireAuth();
 
   await db.user.update({
     where: { id: userId },
-    data: { role, onboardingDone: true },
+    data: { role: validRole, onboardingDone: true },
   });
 
   revalidatePath("/dashboard");

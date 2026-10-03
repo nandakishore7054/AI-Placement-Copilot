@@ -9,6 +9,7 @@ import { analyzeResumeWithAi } from "@/lib/ai/resume-analyzer";
 import { saveResumeEmbedding } from "@/lib/ai/embeddings";
 import { AuditAction, AuditEntity, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { IdSchema } from "@/schemas/common";
 
 const MAX_RESUME_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -23,7 +24,7 @@ export async function getResume() {
 
 export async function getResumeAnalysis(targetUserId?: string) {
   const callerId = await requireAuth();
-  const userId = targetUserId || callerId;
+  const userId = targetUserId ? IdSchema.parse(targetUserId) : callerId;
 
   return db.resumeAnalysis.findFirst({
     where: {

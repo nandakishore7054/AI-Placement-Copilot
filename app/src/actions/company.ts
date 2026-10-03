@@ -20,6 +20,7 @@ import type {
   InviteMemberInput,
   UpdateMemberRoleInput,
 } from "@/schemas/company";
+import { IdSchema, EmailSchema } from "@/schemas/common";
 import { revalidatePath } from "next/cache";
 
 // ─── Company CRUD ─────────────────────────────────────────────────────────────
@@ -70,18 +71,19 @@ export async function updateCompany(
   data: UpdateCompanyInput,
 ) {
   const userId = await requireAuth();
-  await requireCompanyPermission(userId, companyId, PERMISSIONS.COMPANY_SETTINGS);
+  const validCompanyId = IdSchema.parse(companyId);
+  await requireCompanyPermission(userId, validCompanyId, PERMISSIONS.COMPANY_SETTINGS);
   const parsed = UpdateCompanySchema.parse(data);
 
   const company = await db.company.update({
-    where: { id: companyId },
+    where: { id: validCompanyId },
     data: parsed,
   });
 
   await createAuditLog({
     action: AuditAction.UPDATE,
     entityType: AuditEntity.COMPANY,
-    entityId: companyId,
+    entityId: validCompanyId,
     userId,
     metadata: { changes: Object.keys(parsed) },
   });
@@ -111,10 +113,11 @@ export async function getMyCompanies() {
  */
 export async function getCompanyById(companyId: string) {
   const userId = await requireAuth();
-  await requireCompanyPermission(userId, companyId, PERMISSIONS.VIEW_DASHBOARD);
+  const validCompanyId = IdSchema.parse(companyId);
+  await requireCompanyPermission(userId, validCompanyId, PERMISSIONS.VIEW_DASHBOARD);
 
   return db.company.findUnique({
-    where: { id: companyId },
+    where: { id: validCompanyId },
     include: {
       members: {
         include: {
@@ -141,14 +144,15 @@ export async function getCompanyById(companyId: string) {
  */
 export async function deleteCompany(companyId: string) {
   const userId = await requireAuth();
-  await requireCompanyPermission(userId, companyId, PERMISSIONS.DELETE_COMPANY);
+  const validCompanyId = IdSchema.parse(companyId);
+  await requireCompanyPermission(userId, validCompanyId, PERMISSIONS.DELETE_COMPANY);
 
-  await db.company.delete({ where: { id: companyId } });
+  await db.company.delete({ where: { id: validCompanyId } });
 
   await createAuditLog({
     action: AuditAction.DELETE,
     entityType: AuditEntity.COMPANY,
-    entityId: companyId,
+    entityId: validCompanyId,
     userId,
   });
 
@@ -163,10 +167,11 @@ export async function deleteCompany(companyId: string) {
  */
 export async function getCompanyMembers(companyId: string) {
   const userId = await requireAuth();
-  await requireCompanyPermission(userId, companyId, PERMISSIONS.VIEW_DASHBOARD);
+  const validCompanyId = IdSchema.parse(companyId);
+  await requireCompanyPermission(userId, validCompanyId, PERMISSIONS.VIEW_DASHBOARD);
 
   return db.companyMember.findMany({
-    where: { companyId },
+    where: { companyId: validCompanyId },
     include: {
       user: {
         select: {
@@ -241,12 +246,13 @@ export async function updateMemberRole(
   data: UpdateMemberRoleInput,
 ) {
   const userId = await requireAuth();
+  const validCompanyId = IdSchema.parse(companyId);
   const parsed = UpdateMemberRoleSchema.parse(data);
-  await requireCompanyPermission(userId, companyId, PERMISSIONS.MANAGE_MEMBERS);
+  await requireCompanyPermission(userId, validCompanyId, PERMISSIONS.MANAGE_MEMBERS);
 
   // Verify the target member exists in this company
   const member = await db.companyMember.findFirst({
-    where: { id: parsed.memberId, companyId },
+    where: { id: parsed.memberId, companyId: validCompanyId },
   });
 
   if (!member) throw new Error("Member not found in this company.");
@@ -291,10 +297,12 @@ export async function updateMemberRole(
  */
 export async function removeMember(memberId: string, companyId: string) {
   const userId = await requireAuth();
-  await requireCompanyPermission(userId, companyId, PERMISSIONS.MANAGE_MEMBERS);
+  const validMemberId = IdSchema.parse(memberId);
+  const validCompanyId = IdSchema.parse(companyId);
+  await requireCompanyPermission(userId, validCompanyId, PERMISSIONS.MANAGE_MEMBERS);
 
   const member = await db.companyMember.findFirst({
-    where: { id: memberId, companyId },
+    where: { id: validMemberId, companyId: validCompanyId },
   });
 
   if (!member) throw new Error("Member not found.");
@@ -305,12 +313,12 @@ export async function removeMember(memberId: string, companyId: string) {
     throw new Error("Use 'Leave Company' to remove yourself.");
   }
 
-  await db.companyMember.delete({ where: { id: memberId } });
+  await db.companyMember.delete({ where: { id: validMemberId } });
 
   await createAuditLog({
     action: AuditAction.DELETE,
     entityType: AuditEntity.COMPANY_MEMBER,
-    entityId: memberId,
+    entityId: validMemberId,
     userId,
     metadata: { removedUserId: member.userId },
   });
@@ -327,10 +335,12 @@ export async function transferOwnership(
   newOwnerMemberId: string,
 ) {
   const userId = await requireAuth();
-  await requireCompanyPermission(userId, companyId, PERMISSIONS.DELETE_COMPANY);
+  const validCompanyId = IdSchema.parse(companyId);
+  const validNewOwnerMemberId = IdSchema.parse(newOwnerMemberId);
+  await requireCompanyPermission(userId, validCompanyId, PERMISSIONS.DELETE_COMPANY);
 
   const newOwnerMember = await db.companyMember.findFirst({
-    where: { id: newOwnerMemberId, companyId },
+    where: { id: validNewOwnerMemberId, companyId: validCompanyId },
   });
 
   if (!newOwnerMember) throw new Error("Target member not found.");
@@ -339,14 +349,14 @@ export async function transferOwnership(
   }
 
   const currentOwnerMember = await db.companyMember.findFirst({
-    where: { companyId, userId },
+    where: { companyId: validCompanyId, userId },
   });
 
   if (!currentOwnerMember) throw new Error("Owner record not found.");
 
   await db.$transaction([
     db.companyMember.update({
-      where: { id: newOwnerMemberId },
+      where: { id: validNewOwnerMemberId },
       data: { role: CompanyRole.OWNER },
     }),
     db.companyMember.update({
@@ -358,7 +368,7 @@ export async function transferOwnership(
   await createAuditLog({
     action: AuditAction.UPDATE,
     entityType: AuditEntity.COMPANY_MEMBER,
-    entityId: newOwnerMemberId,
+    entityId: validNewOwnerMemberId,
     userId,
     metadata: { action: "TRANSFER_OWNERSHIP", newOwnerId: newOwnerMember.userId },
   });
@@ -371,9 +381,10 @@ export async function transferOwnership(
  */
 export async function leaveCompany(companyId: string) {
   const userId = await requireAuth();
+  const validCompanyId = IdSchema.parse(companyId);
 
   const member = await db.companyMember.findUnique({
-    where: { userId_companyId: { userId, companyId } },
+    where: { userId_companyId: { userId, companyId: validCompanyId } },
   });
 
   if (!member) throw new Error("You are not a member of this company.");
@@ -384,7 +395,7 @@ export async function leaveCompany(companyId: string) {
   }
 
   await db.companyMember.delete({
-    where: { userId_companyId: { userId, companyId } },
+    where: { userId_companyId: { userId, companyId: validCompanyId } },
   });
 
   revalidatePath("/recruiter/dashboard");
@@ -398,10 +409,12 @@ export async function leaveCompany(companyId: string) {
 export async function searchUserByEmail(email: string) {
   await requireAuth();
 
-  if (!email || email.length < 3) return null;
+  const parseResult = EmailSchema.safeParse(email);
+  if (!parseResult.success) return null;
+  const validEmail = parseResult.data;
 
   return db.user.findUnique({
-    where: { email: email.toLowerCase().trim() },
+    where: { email: validEmail },
     select: {
       id: true,
       firstName: true,

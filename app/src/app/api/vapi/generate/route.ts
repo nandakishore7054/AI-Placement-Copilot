@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { generateInterviewQuestions } from "@/lib/ai/interview-questions";
-
+import { VapiGenerateQuestionsSchema } from "@/schemas/interview";
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  applyRateLimitHeaders,
+} from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -9,17 +14,22 @@ export const dynamic = "force-dynamic";
 // to dynamically generate interview questions via Gemini
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const rateLimit = await checkRateLimit(req, "AI_GENERATE");
+    if (!rateLimit.success) {
+      return createRateLimitResponse(rateLimit);
+    }
 
-    // Vapi sends assistant data and call context
-    const { role, type, level, techStack, interviewId } = body;
+    const rawBody = await req.json().catch(() => ({}));
+    const parsed = VapiGenerateQuestionsSchema.safeParse(rawBody);
 
-    if (!role || !type || !level || !interviewId) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Missing required fields: role, type, level, interviewId" },
+        { error: parsed.error.issues[0]?.message || "Invalid interview request payload" },
         { status: 400 },
       );
     }
+
+    const { role, type, level, techStack, interviewId } = parsed.data;
 
     // Generate questions via Gemini (Phase 5 implementation)
     const questions = await generateInterviewQuestions(
@@ -38,9 +48,10 @@ export async function POST(req: Request) {
     });
 
     // Return questions in Vapi-compatible format
-    return NextResponse.json({
+    const response = NextResponse.json({
       questions: questions.map((q) => q.questionText),
     });
+    return applyRateLimitHeaders(response, rateLimit);
   } catch (error) {
     console.error("[Vapi Generate] Error:", error);
     return NextResponse.json(
