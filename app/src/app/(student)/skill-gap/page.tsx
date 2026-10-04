@@ -54,8 +54,8 @@ export default async function SkillGapPage({ searchParams }: PageProps) {
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
               Skill Gap Analysis
             </h1>
-            <span className="rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700">
-              Phase 6
+            <span className="rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[11px] font-bold text-primary dark:text-indigo-400">
+              AI Calibration
             </span>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
@@ -86,8 +86,8 @@ export default async function SkillGapPage({ searchParams }: PageProps) {
       ) : (
         /* Empty State for first-time calibration */
         <div className="space-y-8">
-          <div className="rounded-3xl border bg-card p-8 sm:p-12 text-center space-y-6 shadow-xs max-w-3xl mx-auto">
-            <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+          <div className="rounded-3xl border border-border bg-card p-8 sm:p-12 text-center space-y-6 shadow-xs shadow-inner-glow max-w-3xl mx-auto">
+            <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary border border-primary/20">
               <Target className="h-8 w-8" />
             </div>
 
@@ -102,24 +102,24 @@ export default async function SkillGapPage({ searchParams }: PageProps) {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left pt-4">
-              <div className="rounded-2xl border p-4 bg-muted/20 space-y-1.5">
-                <BarChart3 className="h-5 w-5 text-indigo-600 mb-1" />
+              <div className="rounded-2xl border border-border/80 p-4 bg-muted/20 space-y-1.5 shadow-2xs">
+                <BarChart3 className="h-5 w-5 text-primary mb-1" />
                 <h3 className="font-bold text-xs text-foreground">Multi-Source Audit</h3>
                 <p className="text-[11px] text-muted-foreground leading-normal">
                   Synthesizes your profile, parsed resume text, and mock interview results.
                 </p>
               </div>
 
-              <div className="rounded-2xl border p-4 bg-muted/20 space-y-1.5">
-                <Compass className="h-5 w-5 text-violet-600 mb-1" />
+              <div className="rounded-2xl border border-border/80 p-4 bg-muted/20 space-y-1.5 shadow-2xs">
+                <Compass className="h-5 w-5 text-violet-500 mb-1" />
                 <h3 className="font-bold text-xs text-foreground">Competency Radar</h3>
                 <p className="text-[11px] text-muted-foreground leading-normal">
                   Visual SVG radar comparison against standard role expectations (80% benchmark).
                 </p>
               </div>
 
-              <div className="rounded-2xl border p-4 bg-muted/20 space-y-1.5">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600 mb-1" />
+              <div className="rounded-2xl border border-border/80 p-4 bg-muted/20 space-y-1.5 shadow-2xs">
+                <CheckCircle2 className="h-5 w-5 text-emerald-500 mb-1" />
                 <h3 className="font-bold text-xs text-foreground">Actionable Plan</h3>
                 <p className="text-[11px] text-muted-foreground leading-normal">
                   Prioritized recommendations to close critical gaps before placements.

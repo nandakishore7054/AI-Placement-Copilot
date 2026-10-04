@@ -48,7 +48,7 @@ export function ApplicationCard({ application }: ApplicationCardProps) {
   const company = job.company;
 
   return (
-    <div className="group relative flex flex-col justify-between rounded-2xl border bg-card p-5 transition-all duration-200 hover:border-zinc-300 hover:shadow-md">
+    <div className="group relative flex flex-col justify-between rounded-2xl border border-border bg-card p-5 shadow-xs shadow-inner-glow transition-all duration-200 hover:border-primary/40 hover:-translate-y-0.5 hover:shadow-sm">
       {/* Top Header: Company logo, name, status */}
       <div className="space-y-4">
         <div className="flex items-start justify-between gap-3">

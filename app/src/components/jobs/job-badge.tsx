@@ -10,17 +10,17 @@ interface JobBadgeProps {
 }
 
 const LEVEL_COLORS: Record<JobLevel, string> = {
-  BEGINNER: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  INTERMEDIATE: "bg-amber-50 text-amber-700 border-amber-200",
-  SENIOR: "bg-violet-50 text-violet-700 border-violet-200",
+  BEGINNER: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20",
+  INTERMEDIATE: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20",
+  SENIOR: "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20",
 };
 
 const TYPE_COLORS: Record<JobType, string> = {
-  FULL_TIME: "bg-indigo-50 text-indigo-700 border-indigo-200",
-  PART_TIME: "bg-sky-50 text-sky-700 border-sky-200",
-  INTERNSHIP: "bg-teal-50 text-teal-700 border-teal-200",
-  CONTRACT: "bg-orange-50 text-orange-700 border-orange-200",
-  REMOTE: "bg-purple-50 text-purple-700 border-purple-200",
+  FULL_TIME: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/20",
+  PART_TIME: "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20",
+  INTERNSHIP: "bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-500/20",
+  CONTRACT: "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20",
+  REMOTE: "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20",
 };
 
 export function JobBadge({ type, value, className }: JobBadgeProps) {

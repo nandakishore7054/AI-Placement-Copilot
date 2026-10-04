@@ -9,8 +9,13 @@ import {
   CreateExperienceSchema,
   UpdateExperienceSchema,
   ExperienceFiltersSchema,
+  CreateStudentExperienceSchema,
 } from "@/schemas/experience";
-import type { CreateExperienceInput, UpdateExperienceInput } from "@/schemas/experience";
+import type {
+  CreateExperienceInput,
+  UpdateExperienceInput,
+  CreateStudentExperienceInput,
+} from "@/schemas/experience";
 import { IdSchema } from "@/schemas/common";
 import { revalidatePath } from "next/cache";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
@@ -287,3 +292,127 @@ export async function deleteExperience(experienceId: string, companyId: string) 
   revalidatePath("/recruiter/experiences");
   revalidatePath("/experiences");
 }
+
+// ─── Student Submission Flow ──────────────────────────────────────────────────
+
+export async function getCompaniesList() {
+  return db.company.findMany({
+    select: {
+      id: true,
+      name: true,
+      logoUrl: true,
+    },
+    orderBy: { name: "asc" },
+    take: 100,
+  });
+}
+
+export async function createStudentExperience(data: CreateStudentExperienceInput) {
+  const userId = await requireAuth();
+  const parsed = CreateStudentExperienceSchema.parse(data);
+
+  let targetCompanyId = parsed.companyId;
+
+  if (targetCompanyId) {
+    const existing = await db.company.findUnique({
+      where: { id: targetCompanyId },
+      select: { id: true },
+    });
+    if (!existing) {
+      targetCompanyId = undefined;
+    }
+  }
+
+  if (!targetCompanyId) {
+    const match = await db.company.findFirst({
+      where: {
+        name: { equals: parsed.companyName, mode: "insensitive" },
+      },
+      select: { id: true },
+    });
+
+    if (match) {
+      targetCompanyId = match.id;
+    } else {
+      const cleanSlug = parsed.companyName
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "")
+        .slice(0, 20);
+      const randomSuffix = Math.random().toString(36).substring(2, 7);
+      const newCompany = await db.company.create({
+        data: {
+          name: parsed.companyName.trim(),
+          email: `${cleanSlug || "org"}-${randomSuffix}@placement-copilot.internal`,
+          verified: false,
+        },
+      });
+      targetCompanyId = newCompany.id;
+    }
+  }
+
+  const formattedDescription = `
+<div class="space-y-4">
+  <div class="p-3 bg-muted/40 rounded-xl border border-border/50 text-sm">
+    <p class="font-medium text-foreground">
+      <strong>Difficulty:</strong> ${parsed.difficulty} &nbsp;|&nbsp; 
+      <strong>Outcome:</strong> ${parsed.overallOutcome}
+    </p>
+  </div>
+
+  <div class="space-y-1">
+    <h3 class="text-base font-semibold text-foreground">Interview Rounds</h3>
+    <p class="text-muted-foreground whitespace-pre-wrap">${parsed.rounds.trim()}</p>
+  </div>
+
+  <div class="space-y-1">
+    <h3 class="text-base font-semibold text-foreground">Key Questions & Topics Asked</h3>
+    <p class="text-muted-foreground whitespace-pre-wrap">${parsed.questions.trim()}</p>
+  </div>
+
+  <div class="space-y-1">
+    <h3 class="text-base font-semibold text-foreground">Preparation Strategy</h3>
+    <p class="text-muted-foreground whitespace-pre-wrap">${parsed.preparationStrategy.trim()}</p>
+  </div>
+
+  <div class="space-y-1">
+    <h3 class="text-base font-semibold text-foreground">Advice & Tips for Peers</h3>
+    <p class="text-muted-foreground whitespace-pre-wrap">${parsed.tips.trim()}</p>
+  </div>
+</div>
+`.trim();
+
+  const title = `${parsed.companyName.trim()} — ${parsed.role.trim()} Interview Experience`;
+
+  const experience = await db.experience.create({
+    data: {
+      title,
+      description: formattedDescription,
+      category: parsed.category,
+      level: parsed.level,
+      salary: parsed.salary?.trim() || null,
+      isVisible: true,
+      companyId: targetCompanyId,
+    },
+  });
+
+  await createAuditLog({
+    action: AuditAction.CREATE,
+    entityType: AuditEntity.EXPERIENCE,
+    entityId: experience.id,
+    userId,
+    metadata: {
+      companyId: targetCompanyId,
+      companyName: parsed.companyName,
+      title: experience.title,
+      isStudentSubmission: true,
+      difficulty: parsed.difficulty,
+      overallOutcome: parsed.overallOutcome,
+    },
+  });
+
+  revalidatePath("/experiences");
+  revalidatePath(`/experiences/${experience.id}`);
+
+  return { success: true, experienceId: experience.id };
+}
+

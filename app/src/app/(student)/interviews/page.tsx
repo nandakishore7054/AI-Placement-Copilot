@@ -46,7 +46,7 @@ export default async function InterviewsPage() {
 
         <Link
           href="/interviews/new"
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition-colors shrink-0"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground shadow-2xs hover:opacity-90 transition-opacity shrink-0 cursor-pointer"
         >
           <Plus className="h-4 w-4" />
           Create New Interview
@@ -56,24 +56,24 @@ export default async function InterviewsPage() {
       {/* Stats row if interviews exist */}
       {totalInterviews > 0 && (
         <div className="grid grid-cols-3 gap-4">
-          <div className="rounded-2xl border bg-card p-4 text-center shadow-2xs">
-            <div className="flex h-8 w-8 mx-auto items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 mb-1">
+          <div className="rounded-2xl border border-border bg-card p-4 text-center shadow-xs shadow-inner-glow">
+            <div className="flex h-8 w-8 mx-auto items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 mb-1">
               <Mic className="h-4 w-4" />
             </div>
             <p className="text-2xl font-black text-foreground">{totalInterviews}</p>
             <p className="text-xs text-muted-foreground mt-0.5">Total Sessions</p>
           </div>
 
-          <div className="rounded-2xl border bg-card p-4 text-center shadow-2xs">
-            <div className="flex h-8 w-8 mx-auto items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 mb-1">
+          <div className="rounded-2xl border border-border bg-card p-4 text-center shadow-xs shadow-inner-glow">
+            <div className="flex h-8 w-8 mx-auto items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 mb-1">
               <Layers className="h-4 w-4" />
             </div>
             <p className="text-2xl font-black text-foreground">{completedCount}</p>
             <p className="text-xs text-muted-foreground mt-0.5">Completed</p>
           </div>
 
-          <div className="rounded-2xl border bg-card p-4 text-center shadow-2xs">
-            <div className="flex h-8 w-8 mx-auto items-center justify-center rounded-xl bg-purple-50 text-purple-600 mb-1">
+          <div className="rounded-2xl border border-border bg-card p-4 text-center shadow-xs shadow-inner-glow">
+            <div className="flex h-8 w-8 mx-auto items-center justify-center rounded-xl bg-violet-500/10 text-violet-700 dark:text-violet-400 border border-violet-500/20 mb-1">
               <Award className="h-4 w-4" />
             </div>
             <p className="text-2xl font-black text-foreground">

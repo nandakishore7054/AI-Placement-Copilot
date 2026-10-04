@@ -19,7 +19,7 @@ export async function RecommendedJobsSection({
       {/* Section Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20 shadow-2xs">
             <Sparkles className="h-4 w-4" />
           </div>
           <div>
@@ -35,7 +35,7 @@ export async function RecommendedJobsSection({
         {showViewAll && (
           <Link
             href="/jobs"
-            className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1"
+            className="text-xs font-semibold text-primary hover:opacity-80 transition-opacity flex items-center gap-1"
           >
             Browse all jobs
             <ArrowRight className="h-3.5 w-3.5" />
@@ -45,9 +45,9 @@ export async function RecommendedJobsSection({
 
       {/* Content based on Recommendation Status */}
       {result.status === "NO_RESUME" && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-2xl border border-indigo-100 bg-linear-to-r from-indigo-50/70 via-indigo-50/30 to-background">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/10 via-card to-card shadow-xs shadow-inner-glow">
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-2xs">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-2xs">
               <FileText className="h-5 w-5" />
             </div>
             <div>
@@ -62,7 +62,7 @@ export async function RecommendedJobsSection({
 
           <Link
             href="/resume"
-            className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-2xs"
+            className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity shadow-2xs"
           >
             Upload Resume
             <ArrowRight className="h-3.5 w-3.5" />
@@ -71,16 +71,16 @@ export async function RecommendedJobsSection({
       )}
 
       {result.status === "NO_EMBEDDING" && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-2xl border border-amber-200 bg-amber-50/60">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-2xl border border-amber-500/20 bg-amber-500/10 shadow-xs shadow-inner-glow">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-2xs">
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-amber-950">
+              <p className="text-sm font-semibold text-foreground">
                 AI Profile Analysis Pending
               </p>
-              <p className="text-xs text-amber-800 mt-0.5 max-w-xl leading-relaxed">
+              <p className="text-xs text-muted-foreground mt-0.5 max-w-xl leading-relaxed">
                 Run AI analysis on your uploaded resume to generate your semantic profile vector and unlock instant placement matching.
               </p>
             </div>

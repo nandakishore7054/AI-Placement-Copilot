@@ -1,5 +1,6 @@
-// src/components/shared/index.ts
-// Shared components: EmptyState, LoadingSpinner, Pagination, ErrorMessage
-// Phase 1: directory placeholder — implemented progressively
-
-export {};
+export * from "./confirm-dialog";
+export * from "./empty-state";
+export * from "./page-header";
+export * from "./search-input";
+export * from "./stat-card";
+export * from "./status-badge";

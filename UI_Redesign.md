@@ -1,819 +1,355 @@
-# AI Placement Copilot — Production UI/UX Redesign Plan
+# AI Placement Copilot — UI/UX Redesign Master Plan
 
-> **Status:** Plan only — awaiting user approval before implementation.  
-> **Goal:** Transform the current functional prototype into a polished, cohesive, premium SaaS product.
-
----
-
-## Table of Contents
-1. [Current State Assessment](#1-current-state-assessment)
-2. [Target Design Direction](#2-target-design-direction)
-3. [Global Design System](#3-global-design-system)
-4. [App Shell & Navigation](#4-app-shell--navigation)
-5. [Component Library Strategy](#5-component-library-strategy)
-6. [Page-by-Page Redesign Plan](#6-page-by-page-redesign-plan)
-7. [Loading, Empty & Error States](#7-loading-empty--error-states)
-8. [Charts & Data Visualization](#8-charts--data-visualization)
-9. [Dark/Light Mode](#9-darklight-mode)
-10. [Animations & Micro-interactions](#10-animations--micro-interactions)
-11. [Responsive Design](#11-responsive-design)
-12. [Accessibility](#12-accessibility)
-13. [Library Integration Strategy](#13-library-integration-strategy)
-14. [Implementation Phases](#14-implementation-phases)
-15. [Files to Change](#15-files-to-change)
-16. [Risks & Mitigations](#16-risks--mitigations)
+> **Document Version:** 2.0 (Finalized Specification)  
+> **Status:** Plan finalized — awaiting explicit user approval before code modification.  
+> **Aesthetic Benchmark:** Calm, Modern SaaS (Linear, Vercel, Raycast) — strong visual hierarchy, generous whitespace, restrained color accents, subtle borders/shadows, polished cards, consistent typography, purposeful micro-interactions. Zero excessive gradients, neon glows, or gimmicky animations.  
+> **Scope Guarantee:** UI/UX layer only. Preserves 100% of Prisma schema, database models, Server Actions, API routes, authentication/Clerk flow, RBAC permissions, and Phase 1–8 functionality.
 
 ---
 
-## 1. Current State Assessment
+## 1. Key Design & Architectural Decisions
 
-### What Exists Today
-
-| Layer | Status | Notes |
-|-------|--------|-------|
-| **Design Tokens** | ✅ Solid | OKLCH color system, Tailwind v4 `@theme`, card shadows, typography scale |
-| **UI Primitives** | ⚠️ Incomplete | Only 8 shadcn components installed (`alert`, `avatar`, `badge`, `dialog`, `dropdown-menu`, `select`, `separator`, `textarea`). Missing: `Button`, `Card`, `Input`, `Label`, `Tabs`, `Tooltip`, `Sheet`, `Skeleton`, `Progress`, `Command`, `Popover`, `Table` |
-| **App Shell** | ⚠️ Inconsistent | 3 separate sticky headers (student=indigo, recruiter=violet, admin=red). No sidebar. Mobile nav is horizontal scroll overflow bar |
-| **Component Architecture** | ⚠️ Scattered | Buttons, inputs, cards are inline Tailwind in every page. No reusable `Button`, `Input`, `Card` primitives. Each page re-invents styling |
-| **Responsive Design** | ⚠️ Basic | Grid cols change at breakpoints. Mobile nav is overflow scroll. No bottom tab bar for mobile. Tables convert to cards on mobile |
-| **Dark Mode** | ❌ Not active | Token overrides exist in `.dark {}` CSS block but no toggle mechanism. `:root { color-scheme: light }` is hardcoded. `suppressHydrationWarning` is on `<html>` but no theme provider |
-| **Loading States** | ⚠️ Partial | Skeleton loading for 4/12 routes (`jobs`, `applications`, `experiences`, `resume`). Rest have no loading.tsx |
-| **Empty States** | ✅ Good | Most list views have contextual empty states |
-| **Error States** | ⚠️ Partial | 3 error.tsx files exist. Sentry integration done. No per-section graceful degradation |
-| **Animations** | ⚠️ Minimal | `tw-animate-css` imported. 2 custom keyframes (fadeIn, slideUp). No entrance animations, page transitions, or staggered reveals |
-| **Charts** | ⚠️ Custom SVG only | One hand-coded SVG radar chart for skill gap. No charting library. No other visualizations |
-| **Accessibility** | ⚠️ Partial | Radix primitives provide ARIA. Custom components lack `aria-label`, `role` attributes. No skip-to-content. No focus trap on custom modals |
-| **Forms** | ✅ Functional | react-hook-form + Zod validation. But raw `<input>` and `<select>` everywhere instead of themed primitives |
-
-### Top 10 Design Problems
-
-| # | Problem | Impact |
-|---|---------|--------|
-| 1 | **No shared `Button` component** — 50+ inline button styles across pages with inconsistent sizing, colors, borders, and hover effects | Fragmented visual identity |
-| 2 | **No shared `Input`/`Label` component** — Raw `<input>` elements with per-page styling | Inconsistent form UX |
-| 3 | **No shared `Card` component** — `rounded-2xl border bg-card p-5` repeated with slight variations everywhere | Maintenance nightmare |
-| 4 | **Header-only navigation** — Desktop shows 8 text links in a row; mobile shows a scrolling overflow bar with no active state indicator | Poor discoverability, no visual hierarchy |
-| 5 | **Landing page feels detached** — Dark gradient glassmorphism landing vs. white/light dashboard creates jarring transition | Broken design continuity |
-| 6 | **No dark mode toggle** — CSS tokens exist but no runtime switching mechanism | Missing expected feature |
-| 7 | **No data visualization library** — Dashboards show number cards only, no trends/charts | Missed opportunity for at-a-glance insights |
-| 8 | **Typography inconsistency** — Mix of `text-2xl font-bold`, `text-2xl font-black`, `text-lg font-bold`, `text-base font-semibold` for same semantic level across pages | Visual noise |
-| 9 | **Badge/pill color explosion** — ~15+ inline color variants (`bg-indigo-50 text-indigo-700`, `bg-emerald-50 text-emerald-700`, etc.) defined per-component instead of centrally | Hard to maintain consistency |
-| 10 | **No page entrance animations** — Content pops in statically; no staggered fade/slide transitions | Feels like a prototype, not a product |
+| Decision Area | Final Architecture & Rule |
+|---|---|
+| **Design Language** | Clean, minimalist, modern SaaS inspired by Linear, Vercel, and Raycast. Restrained palette: neutral canvas, subtle borders (`border-border`), quiet elevation (`shadow-xs` / `shadow-sm`), clear typographic contrast, and purposeful primary indigo/violet accents. |
+| **Chart Strategy** | **Keep existing custom SVG solutions** (e.g. `SkillGapChart` SVG radar/spider matrix, SVG score dials, animated progress bars) where possible. Only introduce `recharts` if a dashboard trend/funnel visualization genuinely requires it. Do not add multiple charting libraries. |
+| **Animation Strategy** | Pure CSS transitions (`transition-all duration-150 ease-out`), Tailwind keyframes (`tw-animate-css`), and subtle micro-interactions (button press scale `active:scale-[0.98]`, card hover border tint, smooth tab sliding). **No `framer-motion`** unless an animation strictly cannot be implemented cleanly with CSS. |
+| **Libraries.dev Integration** | Will incorporate **ONLY** the specific Libraries.dev component prompts provided by the user. Components will be integrated selectively and purposefully into their intended places without random extra effects. |
+| **Landing Page** | Fully polish the existing landing page (`/`) into a premium SaaS product page while **strictly preserving** its existing purpose, copy, data, and functionality. No fake testimonials, fabricated metrics, artificial pricing, or phantom features. Supports both light and dark themes. |
+| **Navigation Architecture** | Unified **modern SaaS collapsible sidebar** on desktop (240px expanded / 64px icon-only rail) + responsive top header with breadcrumbs, theme switch, and user profile + **bottom tab navigation and slide-over sheet** on mobile devices. Preserves all existing routes and authentication flows. |
+| **Dark / Light Mode** | Native, full-fidelity support across **every single page, layout, and component**. Zero leftover hardcoded light pastels (`bg-indigo-50` with no dark counterpart) and zero unreadable text in dark mode. Powered by `next-themes` with semantic CSS variables (`--color-background`, `--color-card`, `--color-border`, etc.). |
+| **Responsive Design** | Dedicated layouts designed intentionally for Desktop (≥1024px), Tablet (768px–1023px), and Mobile (<768px) — touch-friendly 44px+ targets, collapsible panels, and responsive data displays. |
+| **Functionality Preservation** | **Zero business logic drift.** All Server Actions (`src/actions/*`), API routes (`src/app/api/*`), schemas (`src/schemas/*`), database queries (`src/lib/db.ts`), rate limits, CSRF protection, CSP headers, and RBAC matrix remain intact. |
 
 ---
 
-## 2. Target Design Direction
+## 2. Dependencies & Package Strategy
 
-### Design Philosophy
-**"Calm SaaS"** — Clean white/neutral surfaces, subtle borders, generous whitespace, refined typography, purposeful color accents, and smooth micro-interactions. Think Linear, Vercel, Raycast, or the Libraries.dev aesthetic.
+To keep the application lean, performant, and reliable, dependencies are strictly minimized:
 
-### Key Principles
+### New Dependencies Required
+1. **`next-themes`** (~2 KB)
+   - *Rationale:* Zero-overhead, standard theme provider for Next.js App Router to manage `.dark` class switching on `<html>` without hydration mismatch.
+2. **`@radix-ui/react-tooltip`**, **`@radix-ui/react-progress`**, **`@radix-ui/react-tabs`** (~5 KB each)
+   - *Rationale:* Accessible primitives for tooltips (sidebar collapsed icons), linear score progress meters, and status filter tabs. (Already using `@radix-ui/react-dialog`, `avatar`, `dropdown-menu`, `select`, `separator`, `slot`).
+3. **`recharts`** *(Conditional)*
+   - *Rationale:* Only installed if a specific dashboard requirement cannot be cleanly rendered with SVG/CSS.
 
-1. **Systematic** — Every visual decision flows from the design token system
-2. **Spacious** — More breathing room; cards have `p-6` minimum, section gaps are `space-y-8` or wider
-3. **Restrained Color** — Primary indigo for CTAs only; neutral grays for 90% of surfaces; semantic colors for status only
-4. **Elevated Typography** — Clear hierarchy with distinct heading/body/caption weights
-5. **Purposeful Motion** — Every animation communicates meaning (entrance, feedback, transition)
-6. **Mobile-First** — Bottom tab navigation, touch-friendly targets, progressive disclosure
+### Dependencies Explicitly Avoided
+- ❌ No `framer-motion` (pure CSS/Tailwind fulfills all motion requirements).
+- ❌ No secondary charting libraries (no Chart.js, Tremor, ApexCharts).
+- ❌ No secondary CSS frameworks or UI component packs (no Chakra, Mantine, AntD).
 
 ---
 
-## 3. Global Design System
+## 3. Global Design System Specification
 
-### 3.1 Color Tokens (Refine existing `@theme`)
+### 3.1 Color Palette & Theme Tokens (OKLCH in `globals.css`)
 
-Current tokens are well-structured. Refinements needed:
+```css
+/* Light Mode */
+--color-background: oklch(100% 0 0);           /* Pure white canvas */
+--color-surface-subtle: oklch(98.5% 0.002 260);/* Very light neutral background */
+--color-card: oklch(100% 0 0);                 /* Crisp card surface */
+--color-card-foreground: oklch(14% 0.02 260);  /* Deep charcoal text */
+--color-border: oklch(92% 0.005 260);          /* 1px subtle divider */
+--color-muted: oklch(96% 0.005 260);           /* Light gray container */
+--color-muted-foreground: oklch(48% 0.01 260); /* High-contrast secondary text */
 
-```
-Existing ✅ Keep:
-  --color-primary: oklch(58% 0.19 270)        → Indigo (brand)
-  --color-background: oklch(100% 0 0)         → Pure white
-  --color-foreground: oklch(9% 0.02 260)      → Near-black
-  --color-muted: oklch(96% 0.005 260)         → Light gray
-  --color-border: oklch(90% 0.005 260)        → Subtle border
+/* Dark Mode */
+--color-background: oklch(12% 0.015 260);      /* Deep charcoal canvas */
+--color-surface-subtle: oklch(14% 0.015 260);  /* Subtle background panel */
+--color-card: oklch(16% 0.015 260);            /* Card surface */
+--color-card-foreground: oklch(96% 0.005 260); /* Crisp off-white text */
+--color-border: oklch(22% 0.015 260);          /* Subtle dark border */
+--color-muted: oklch(20% 0.015 260);           /* Subtle secondary surface */
+--color-muted-foreground: oklch(65% 0.01 260); /* Readable muted text */
 
-New tokens to ADD:
-  --color-success: oklch(65% 0.18 155)        → Emerald green (accepted, completed)
-  --color-warning: oklch(75% 0.15 85)         → Amber (review, caution)
-  --color-info: oklch(65% 0.15 240)           → Blue (informational)
-  --color-surface-raised: oklch(99% 0.002 260) → Slightly raised card bg (vs pure white)
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05)
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05)
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04)
+/* Brand & Semantic Accents */
+--color-primary: oklch(58% 0.19 270);          /* Modern Indigo */
+--color-primary-foreground: oklch(98% 0 0);
+--color-success: oklch(65% 0.18 155);          /* Emerald */
+--color-warning: oklch(75% 0.15 85);           /* Amber */
+--color-destructive: oklch(60% 0.22 27);       /* Rose */
 ```
 
 ### 3.2 Typography Scale
 
-Replace the current `h1`-`h4` base-layer with a more refined system:
+- **Page Title:** `text-2xl font-bold tracking-tight text-foreground` (28px)
+- **Section Heading:** `text-lg font-semibold tracking-tight text-foreground` (18px)
+- **Card Title:** `text-sm font-semibold text-foreground` (14px)
+- **Body Text:** `text-sm text-foreground/90 leading-relaxed` (14px)
+- **Muted / Subtext:** `text-xs text-muted-foreground` (12px)
+- **Eyebrow / Category:** `text-[11px] font-semibold uppercase tracking-wider text-muted-foreground`
+- **Stat Values:** `text-2xl sm:text-3xl font-bold tabular-nums text-foreground`
 
-```
-Page Title:    text-2xl font-bold tracking-tight (28px)
-Section Title: text-lg font-semibold (18px)
-Card Title:    text-base font-semibold (16px)
-Body:          text-sm (14px) — default
-Caption:       text-xs text-muted-foreground (12px)
-Eyebrow:       text-[11px] font-semibold uppercase tracking-wider
-Stat Number:   text-3xl font-bold tabular-nums (30px)
-```
-
-### 3.3 Spacing System
-
-Standardize spacing tokens to a consistent rhythm:
-
-```
-Section gap:       gap-8 (32px)
-Card padding:      p-6 (24px)
-Card inner gap:    space-y-4 (16px)
-Component gap:     gap-4 (16px)
-Dense element gap: gap-2 (8px)
-Icon gap:          gap-2 (8px)
-```
-
-### 3.4 Border Radius
-
-Current system is good. Enforce:
-
-```
-Cards/Panels:   rounded-xl (12px)
-Buttons:        rounded-lg (8px)
-Badges/Pills:   rounded-full
-Inputs:         rounded-lg (8px)
-Avatars:        rounded-full (circle)
-Logo marks:     rounded-xl
-```
-
-### 3.5 Shadows
-
-Standardize card shadow usage:
-
-```
-Default card:   shadow-sm    (subtle, always-on)
-Hover card:     shadow-md    (elevated on hover)
-Modal/Sheet:    shadow-lg    (prominent overlay)
-Floating:       shadow-xl    (dropdowns, popovers)
-```
+### 3.3 Surface & Card Rhythm
+- Cards have standard `rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xs`.
+- Hover cards feature a refined 150ms transition: `hover:border-primary/30 hover:shadow-sm`.
+- Form inputs standardize on `h-9 rounded-lg border border-border bg-background px-3 text-sm focus-visible:ring-1 focus-visible:ring-primary`.
+- Buttons use standard heights: `h-9 px-4 text-xs font-semibold` (standard), `h-8 px-3 text-xs` (compact), `h-10 px-5 text-sm` (prominent).
 
 ---
 
-## 4. App Shell & Navigation
+## 4. Navigation Architecture & App Shell
 
-### 4.1 Current Problems
-
-- **3 separate inline header layouts** duplicated across student/recruiter/admin layouts
-- **No sidebar** — all nav is in a horizontal top bar which gets crowded with 8+ links
-- **Mobile nav** is a horizontally scrollable `<div>` with no active state highlighting
-- **No breadcrumbs** for deep routes like `/interviews/[id]/feedback`
-- **Logo is different** across portals (indigo "AI" vs violet "R" vs red "A")
-
-### 4.2 Proposed Architecture
+### 4.1 Shell Layout Structure (`src/components/layout/`)
 
 ```
-┌─────────────────────────────────────────────────┐
-│ Top Header Bar (64px)                           │
-│ ┌──────────┐                    ┌──────────────┐│
-│ │ Logo     │                    │ Search|Theme|U││
-│ └──────────┘                    └──────────────┘│
-├─────────┬───────────────────────────────────────┤
-│ Sidebar │ Main Content Area                     │
-│ (240px) │ ┌─────────────────────────────────┐   │
-│ ┌─────┐ │ │ Page Header + Breadcrumbs       │   │
-│ │ Nav │ │ ├─────────────────────────────────┤   │
-│ │Items│ │ │                                 │   │
-│ │     │ │ │ Page Content                    │   │
-│ │     │ │ │                                 │   │
-│ └─────┘ │ └─────────────────────────────────┘   │
-└─────────┴───────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│ App Shell Container                                                    │
+├──────────────┬─────────────────────────────────────────────────────────┤
+│ Sidebar      │ Main Content Wrapper                                    │
+│ (Desktop     ├─────────────────────────────────────────────────────────┤
+│  240px /     │ Header Bar (h-14, sticky top-0, z-30, backdrop-blur-md) │
+│  Collapsed   │ ├─ Breadcrumbs / Title        ├─ Search / Theme / User ─┤
+│  64px)       ├─────────────────────────────────────────────────────────┤
+│ ├─ Brand     │ Page Canvas (scrollable container, max-w-7xl, p-6)      │
+│ ├─ Nav Items │                                                         │
+│ ├─ Separator │                                                         │
+│ ├─ Secondary │                                                         │
+│ ├─ Collapse  │                                                         │
+│ └─ User      ├─────────────────────────────────────────────────────────┤
+│              │ Mobile Bottom Bar (h-16, fixed bottom-0, md:hidden)     │
+└──────────────┴─────────────────────────────────────────────────────────┘
 ```
 
-#### Desktop (≥1024px)
-- **Collapsible sidebar** (240px expanded, 64px collapsed — icon-only)
-- Sidebar sections: Navigation links with icons, portal switcher (if admin/recruiter), user profile section
-- Top bar: Logo + breadcrumbs on left, global search + dark mode toggle + `UserButton` on right
-- Sidebar stores collapsed state in localStorage
+### 4.2 Portal Navigation Map
 
-#### Tablet (768px–1023px)
-- **Sidebar collapsed by default** (icon-only, 64px)
-- Expand on hover or hamburger tap (overlay mode)
+1. **Student Portal (`(student)`):**
+   - Primary: Dashboard (`/dashboard`), Jobs (`/jobs`), Applications (`/applications`), Interviews (`/interviews`), Resume (`/resume`).
+   - Intelligence: Skill Gap (`/skill-gap`), Career Roadmap (`/career`), Experiences (`/experiences`).
+   - Account: Profile (`/profile`).
 
-#### Mobile (<768px)
-- **No sidebar** — replaced by:
-  - **Top header**: Logo + hamburger menu + UserButton
-  - **Bottom tab bar**: 5 primary nav items with icons (Dashboard, Jobs, Applications, Interviews, More)
-  - **"More" tab**: Opens a bottom sheet with remaining nav (Resume, Skill Gap, Career, Profile, etc.)
+2. **Recruiter Portal (`(recruiter)`):**
+   - Operations: Dashboard (`/recruiter/dashboard`), Job Listings (`/recruiter/jobs`), Applicants (`/recruiter/applicants`), Experiences (`/recruiter/experiences`).
+   - Organization: Company Settings (`/recruiter/company`), Team Management (`/recruiter/team`).
 
-#### Implementation
+3. **Admin Portal (`(admin)`):**
+   - Governance: Overview (`/admin/dashboard`), Audit Trail (`/admin/audit-log`).
 
-| Component | File | Purpose |
-|-----------|------|---------|
-| `AppSidebar` | `src/components/layout/app-sidebar.tsx` | Collapsible sidebar with nav items, portal awareness |
-| `AppHeader` | `src/components/layout/app-header.tsx` | Top bar with breadcrumbs, search, theme toggle, user |
-| `MobileBottomNav` | `src/components/layout/mobile-bottom-nav.tsx` | Fixed bottom tab bar for mobile |
-| `MobileNavSheet` | `src/components/layout/mobile-nav-sheet.tsx` | "More" bottom sheet overlay |
-| `BreadcrumbNav` | `src/components/layout/breadcrumb-nav.tsx` | Auto-generated breadcrumbs from pathname |
-| `ThemeToggle` | `src/components/layout/theme-toggle.tsx` | Light/dark/system mode switcher |
-| `PortalSwitcher` | `src/components/layout/portal-switcher.tsx` | Switch between student/recruiter/admin |
-
-### 4.3 Sidebar Navigation Structure
-
-**Student Portal:**
-```
-Dashboard        (LayoutDashboard)
-Jobs             (Briefcase)
-Applications     (FileText)
-Interviews       (Mic)
-Resume           (FileSearch)
-─── separator ───
-Skill Gap        (Target)
-Career           (Compass)
-Experiences      (BookOpen)
-─── separator ───
-Profile          (UserCircle)
-```
-
-**Recruiter Portal:**
-```
-Dashboard        (LayoutDashboard)
-Job Listings     (Briefcase)
-Applicants       (Users)
-Experiences      (BookOpen)
-─── separator ───
-Company          (Building2)
-Team             (UserPlus)
-```
-
-**Admin Portal:**
-```
-Overview         (LayoutDashboard)
-Audit Log        (Activity)
-```
+4. **Mobile Navigation Solution:**
+   - 5 primary destinations on bottom tab bar with clean Lucide icons and active indicator dot.
+   - "More" trigger opens a smooth bottom sheet for secondary navigation links and portal options.
 
 ---
 
-## 5. Component Library Strategy
+## 5. Phased Implementation Plan
 
-### 5.1 Missing shadcn/ui Primitives to Install
-
-```bash
-npx shadcn@latest add button card input label tabs tooltip sheet skeleton progress table popover command scroll-area switch
+```mermaid
+flowchart TD
+    P1[Phase 1: Design Tokens, Theme Provider & Shared UI Primitives] --> P2[Phase 2: App Shell, Sidebar & Navigation Framework]
+    P2 --> P3[Phase 3: Landing Page & Public Routes Polish]
+    P3 --> P4[Phase 4: Student Portal Redesign]
+    P4 --> P5[Phase 5: Recruiter & Admin Portals Redesign]
+    P5 --> P6[Phase 6: Quality, Loading Skeletons, a11y & Verification]
 ```
 
-This adds 15 new primitives to `src/components/ui/`. These replace all inline button/input/card patterns across the codebase.
-
-### 5.2 Custom Shared Components to Build
-
-| Component | File | Purpose |
-|-----------|------|---------|
-| `StatCard` | `src/components/shared/stat-card.tsx` | Unified stat/metric card used across all 3 dashboards |
-| `PageHeader` | `src/components/shared/page-header.tsx` | Page title + description + optional actions slot |
-| `EmptyState` | `src/components/shared/empty-state.tsx` | Reusable empty state with icon, title, description, action |
-| `StatusBadge` | `src/components/shared/status-badge.tsx` | Centralized badge system for all status types |
-| `DataTable` | `src/components/shared/data-table.tsx` | Reusable data table with sorting, filtering, pagination |
-| `SearchInput` | `src/components/shared/search-input.tsx` | Debounced search with clear button |
-| `FilterBar` | `src/components/shared/filter-bar.tsx` | Composable filter chips/dropdowns |
-| `MetricChart` | `src/components/shared/metric-chart.tsx` | Small line/bar sparkline for dashboard trends |
-| `ConfirmDialog` | `src/components/shared/confirm-dialog.tsx` | Reusable confirmation modal (replaces 3 duplicate patterns) |
-| `SectionCard` | `src/components/shared/section-card.tsx` | Card wrapper with title, description, optional header action |
-
-### 5.3 Existing Components to Refactor
-
-| Current Component | Change |
-|-------------------|--------|
-| All inline `<button className="...">` | → Use `<Button>` from shadcn |
-| All inline `<input className="...">` | → Use `<Input>` from shadcn |
-| All `<div className="rounded-2xl border bg-card p-5">` | → Use `<Card>` from shadcn |
-| `JobCard` inline button styles | → Use `<Button variant="ghost" size="sm">` |
-| `ApplicationCard` inline styles | → Use `<Card>`, `<Badge>` |
-| Per-page `StatCard` / `AnalyticsCard` / `QuickAction` | → Unify into shared `StatCard` |
-| Per-page status badge functions (`getApplicationStatusBadge`, etc.) | → Centralize in `StatusBadge` |
-| Per-page empty state components | → Centralize in `EmptyState` |
-| `WithdrawApplicationDialog`, `DeleteJobDialog`, `DeleteResumeDialog`, `DeleteExperienceDialog` | → Share `ConfirmDialog` base |
+### Phase 1: Design Tokens, Theme Provider & Shared UI Primitives
+*Target: Establish the rock-solid design system foundation before touching page layouts.*
+- **Step 1.1:** Update `src/app/globals.css` with clean, modern OKLCH tokens for both light and dark modes, shadow variables, and removal of old garish gradient utilities.
+- **Step 1.2:** Install `next-themes` and create `src/components/theme/theme-provider.tsx` and `src/components/theme/theme-toggle.tsx`. Wrap root layout safely.
+- **Step 1.3:** Build/standardize core UI primitives in `src/components/ui/`:
+  - `button.tsx` (Variants: default, secondary, outline, ghost, destructive; with loading spinner state)
+  - `card.tsx` (Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter)
+  - `input.tsx` & `label.tsx` (Consistent form controls)
+  - `tabs.tsx` (Clean animated/sliding indicator tabs)
+  - `skeleton.tsx` (Modern pulse/shimmer placeholders)
+  - `progress.tsx` (Accessible progress meters)
+  - `tooltip.tsx` (For collapsed sidebar item hints)
+- **Step 1.4:** Build shared business components in `src/components/shared/`:
+  - `page-header.tsx` (Breadcrumb + title + description + action slot)
+  - `stat-card.tsx` (Unified metric card supporting trend indicator, icon, value, caption)
+  - `empty-state.tsx` (Standardized empty state with icon, title, description, optional action)
+  - `status-badge.tsx` (Unified status badges for applications, jobs, interviews, and audit logs)
+  - `search-input.tsx` (Debounced text search with clear icon)
+  - `confirm-dialog.tsx` (Reusable modal confirmation replacing per-feature duplicates)
+- **Verification:** Run `npm run build` and `npx tsc --noEmit` to verify zero regression.
 
 ---
 
-## 6. Page-by-Page Redesign Plan
-
-### 6.1 Landing Page (`src/app/page.tsx`)
-
-**Current:** Dark gradient background, glassmorphism feature cards, emoji icons, basic CTA buttons.
-
-**Redesign:**
-- Keep the dark gradient hero — it's effective for first impression
-- Replace emoji icons (🔍, 🎙️, etc.) with animated Lucide icon cards with gradient overlays
-- Add social proof section: user count, companies, interviews conducted
-- Add testimonial/logo carousel section
-- Add pricing/plan comparison (even if free) for credibility
-- Improve the CTA hierarchy: primary "Get Started" → secondary "Watch Demo"
-- Add subtle entry animations (staggered fade-up) for feature cards
-- Email subscription card in footer area
-- Responsive: Stack to single-column on mobile
-
-### 6.2 Auth Pages (`src/app/(auth)/sign-in`, `sign-up`)
-
-**Current:** Dark gradient centered card. Clerk components render their own styles.
-
-**Redesign:**
-- Keep centered dark layout — it works
-- Add animated gradient orbs or subtle particle background
-- Add feature highlights alongside the auth card (split layout on desktop)
-- Ensure Clerk theme customization matches our design tokens (Clerk `appearance` prop)
-
-### 6.3 Onboarding Pages
-
-**Current:** Functional multi-step forms.
-
-**Redesign:**
-- Add step progress indicator (1 → 2 → 3) at the top
-- Use Card wrapper for form sections
-- Add contextual illustrations/icons per step
-- Transition animation between steps
-
-### 6.4 Student Dashboard
-
-**Current:** `(student)/dashboard/page.tsx` — Not found (redirects to jobs or has a separate routing). The student layout starts at `/dashboard`.
-
-**Redesign:**
-- Create a proper dashboard hub with:
-  - Welcome header with user name and time-of-day greeting
-  - 4 stat cards: Applications count, Interview score avg, Resume ATS score, Skill gap match %
-  - Recent applications timeline (last 5)
-  - Recommended jobs carousel (semantic matches)
-  - Upcoming interviews card
-  - Email subscription widget
-  - Career progress ring (roadmap completion %)
-
-### 6.5 Student Jobs Page
-
-**Current:** Clean grid layout with filters. Good structure.
-
-**Redesign:**
-- Replace raw `<select>` dropdowns with shadcn `Select` or `Popover` filter chips
-- Add a search command palette trigger (⌘K)
-- Improve card hover: subtle border glow, card lift
-- Add "Save job" bookmark button to card
-- Grid → show 2 cols on tablet, 3 on desktop
-- Improve pagination: add "Showing X–Y of Z" text
-
-### 6.6 Student Applications Page
-
-**Current:** Client-side search/filter with card grid. Well-structured.
-
-**Redesign:**
-- Replace search bar with `SearchInput` shared component
-- Replace tab pills with shadcn `Tabs` component
-- Add timeline view toggle (grid vs. timeline)
-- Card redesign: clearer status progression visualization
-
-### 6.7 Student Interviews Page
-
-**Current:** Stats row + card grid. Good structure.
-
-**Redesign:**
-- Stat cards → use shared `StatCard` with mini sparkline trends
-- Interview card → add progress indicator, clearer status colors
-- Interview room (`InterviewAgent`) → dark mode interview room with larger audio visualizer, floating transcript
-- Feedback view → add printable summary, shareable report link
-
-### 6.8 Student Resume Page
-
-**Current:** Upload zone + analysis cards. Well-designed.
-
-**Redesign:**
-- Score breakdown → animated circular progress rings instead of plain numbers
-- Add comparative benchmark ("You vs. Average" bars)
-- Keywords section → use pill cloud with color coding (found=green, missing=red)
-- PDF viewer → inline embedded viewer frame
-
-### 6.9 Career & Skill Gap Pages
-
-**Current:** Complex, feature-rich. Roadmap view with milestone toggles. Radar chart.
-
-**Redesign:**
-- Radar chart → consider a more readable horizontal bar chart alternative alongside radar
-- Roadmap milestones → add subtle connecting line art between steps
-- Recommendations → card carousel with swipe on mobile
-- Market insights → card layout with trend indicators (↑↓)
-
-### 6.10 Recruiter Dashboard
-
-**Current:** Stat cards, quick actions grid, company memberships, recent applications table.
-
-**Redesign:**
-- Replace all inline `StatCard`/`QuickAction` with shared components
-- Add application funnel chart (Applied → Reviewed → Shortlisted → Interview → Offered)
-- Add heatmap or bar chart: applications per job
-- Company cards → better visual with logo integration
-
-### 6.11 Recruiter Applicants Page
-
-**Current:** Dual view (table/cards), search, job filter, status tabs. Solid.
-
-**Redesign:**
-- Replace with `DataTable` shared component
-- Add bulk status update actions
-- Add candidate comparison view
-
-### 6.12 Admin Dashboard
-
-**Current:** Analytics grid, user role distribution, job moderation table, audit trail.
-
-**Redesign:**
-- Add overview charts: daily signups trend, application volume trend
-- Job moderation → better toggle UI with confirmation
-- Audit trail → compact timeline format
-- Add system health indicators
-
-### 6.13 Admin Audit Log Page
-
-**Current:** Filter bar + paginated table. Functional.
-
-**Redesign:**
-- Replace with `DataTable` shared component
-- Add date range picker
-- Add export CSV/JSON button
-- Add detail expansion panel per row
+### Phase 2: App Shell, Sidebar & Navigation Framework
+*Target: Replace inconsistent headers with a unified, responsive sidebar and mobile shell.*
+- **Step 2.1:** Build `src/components/layout/sidebar.tsx` with collapsible desktop rail (240px ↔ 64px), persistent local storage state, active route detection, and tooltip support.
+- **Step 2.2:** Build `src/components/layout/top-header.tsx` with breadcrumbs, page header action slots, theme toggle, and Clerk `<UserButton />`.
+- **Step 2.3:** Build `src/components/layout/mobile-nav.tsx` (bottom tab bar + slide-over drawer).
+- **Step 2.4:** Build `src/components/layout/app-shell.tsx` combining sidebar, top header, mobile nav, and scrollable container.
+- **Step 2.5:** Update portal layouts:
+  - `src/app/(student)/layout.tsx` → Mount student navigation shell.
+  - `src/app/(recruiter)/layout.tsx` → Mount recruiter navigation shell.
+  - `src/app/(admin)/layout.tsx` → Mount admin navigation shell.
+- **Step 2.6:** Move `src/app/dashboard/page.tsx` to `src/app/(student)/dashboard/page.tsx` so student dashboard correctly inherits the student shell while retaining its `/dashboard` route.
+- **Verification:** Run `npm run build` to confirm all 35+ routes build and navigate cleanly.
 
 ---
 
-## 7. Loading, Empty & Error States
-
-### Loading States
-
-**Current:** 4/12 routes have skeleton `loading.tsx`. Skeletons are basic pulse blocks.
-
-**Plan:**
-- Add `loading.tsx` to ALL route segments (12+ files)
-- Standardize skeleton patterns using shadcn `Skeleton` component
-- Match actual page layout in skeletons (not generic blocks)
-- Add shimmer animation (gradient sweep) instead of plain pulse
-
-### Empty States
-
-**Current:** Inline per-page. Good messaging but inconsistent styling.
-
-**Plan:**
-- Create shared `EmptyState` component with props:
-  - `icon` (Lucide icon)
-  - `title` (string)
-  - `description` (string)
-  - `action` (optional Button)
-- Replace all 10+ inline empty states
-
-### Error States
-
-**Current:** 3 error.tsx files. Basic "Something went wrong" messages.
-
-**Plan:**
-- Redesign error boundaries with branded illustration
-- Add "Retry" button that resets the error boundary
-- Add error code display for debugging
-- Per-section error boundaries via Suspense + ErrorBoundary wrapping
+### Phase 3: Landing Page & Public Routes Polish
+*Target: Elevate the public-facing touchpoints to premium SaaS standards without altering copy or functionality.*
+- **Step 3.1:** Redesign `src/app/page.tsx` (Landing Page):
+  - Retain existing headline: *"Your Intelligent Career Copilot"*, subtext, and Clerk auth actions.
+  - Replace raw emojis with refined Lucide iconography inside subtle badge tiles.
+  - Apply clean card borders, elevated typography, and light/dark theme compatibility.
+  - Integrate footer with the existing email subscription widget (`EmailSubscriptionCard`).
+- **Step 3.2:** Polish auth wrapper layouts (`src/app/(auth)/layout.tsx` and sign-in/up pages) with consistent background, brand mark, and theme-neutral containers.
+- **Step 3.3:** Polish onboarding flow (`src/app/onboarding/page.tsx`, `student/page.tsx`, `recruiter/page.tsx`) with cleaner step-indicator cards and improved field spacing.
+- **Verification:** Test `/`, `/sign-in`, `/sign-up`, and `/onboarding` in both light and dark modes.
 
 ---
 
-## 8. Charts & Data Visualization
-
-### Current State
-Only one hand-coded SVG radar chart (`SkillGapChart`). No charting library.
-
-### Recommendation
-
-> [!IMPORTANT]
-> **Awaiting user decision**: Which charting library to use? Options:
-> - **Recharts** — Most popular, good shadcn integration via `shadcn/charts`
-> - **Tremor** — Purpose-built for dashboards, minimal config
-> - **Chart.js via react-chartjs-2** — Lightweight, flexible
-> - **Custom SVG** — Keep hand-coding (current approach)
-
-### Charts to Add
-
-| Dashboard | Chart | Type |
-|-----------|-------|------|
-| Student | Applications by status | Donut/Ring |
-| Student | ATS score trend (if re-analyzed) | Line |
-| Student | Skill gap progress | Horizontal bar |
-| Recruiter | Application funnel | Funnel/Stacked bar |
-| Recruiter | Applications per job | Bar |
-| Recruiter | Applications over time | Area/Line |
-| Admin | Daily signups | Area |
-| Admin | User role distribution | Donut |
-| Admin | Application volume | Bar |
+### Phase 4: Student Portal Redesign
+*Target: Transform all student-facing workflows into a cohesive, Linear-grade workspace.*
+- **Step 4.1: Dashboard (`/dashboard`):**
+  - Implement top greeting bar, 4 unified `StatCard` metrics, active career roadmap progress card, semantic recommended jobs row, recent applications list, and mock interview summaries.
+- **Step 4.2: Jobs Discovery (`/jobs` & `/jobs/[id]`):**
+  - Redesign `job-card.tsx` with refined match-score pill, company logo avatar, and subtle border hover.
+  - Redesign `job-filters.tsx` using styled `Input` and `Select` components.
+  - Polish `/jobs/[id]` with 2-column overview, company sidebar card, and prominent application CTA.
+- **Step 4.3: Applications Hub (`/applications` & `/applications/[id]`):**
+  - Redesign `applications-list-client.tsx` with clean filter tabs, counter badges, and responsive card grid.
+  - Polish `/applications/[id]` timeline view (`application-timeline.tsx`) with clean step markers.
+- **Step 4.4: AI Mock Interviews (`/interviews`, `/interviews/new`, `/interviews/[id]`, `/feedback`):**
+  - Polish interviews list and `interview-card.tsx`.
+  - Redesign `create-interview-form.tsx` with structured multi-step cards and clear tech-stack tag chips.
+  - Refine `interview-agent.tsx` real-time audio room (clean audio visualizer, live status badge, transcript stream).
+  - Polish `feedback-view.tsx` with score dials, strength/improvement lists, and per-question cards.
+- **Step 4.5: Resume Intelligence (`/resume`):**
+  - Redesign `resume-uploader.tsx` with refined drag-and-drop zone and progress feedback.
+  - Polish `resume-analysis-view.tsx` with clean category score cards, ATS pill indicators, and keyword tag clouds.
+- **Step 4.6: Career & Skill Gap (`/career`, `/skill-gap`, `/career/insights`):**
+  - Refine `skill-gap-view.tsx` and preserve existing vector SVG `SkillGapChart` with high-contrast theme strokes.
+  - Polish `career-roadmap-view.tsx` milestone cards and actionable resource links.
+- **Step 4.7: Experiences & Profile (`/experiences`, `/profile`):**
+  - Polish interview experience cards and student profile form.
+- **Verification:** Run `npm run build` and local route checks.
 
 ---
 
-## 9. Dark/Light Mode
-
-### Current State
-- CSS tokens for `.dark` mode exist in `globals.css`
-- No toggle UI
-- No theme provider
-- `:root { color-scheme: light }` hardcoded
-
-### Implementation Plan
-
-1. **Install `next-themes`** (lightweight, SSR-safe)
-2. **Create `ThemeProvider`** wrapper component
-3. Add provider inside root layout, wrapping `{children}`
-4. **Create `ThemeToggle`** button component (sun/moon/monitor icons)
-5. Place toggle in the app header
-6. Update `<html>` tag: remove hardcoded `light`, let `next-themes` manage class
-7. Verify all components render correctly in dark mode
-8. Landing page: keep always-dark (force dark class on that page)
+### Phase 5: Recruiter & Admin Portals Redesign
+*Target: Deliver professional, clean operational dashboards for recruiters and administrators.*
+- **Step 5.1: Recruiter Dashboard (`/recruiter/dashboard`):**
+  - 4 unified `StatCard` metrics, candidate pipeline overview, team cards, and quick operation buttons.
+- **Step 5.2: Recruiter Candidate Management (`/recruiter/applicants`, `jobs/[id]/applicants`):**
+  - Polish `recruiter-applicants-client.tsx` desktop table view and mobile card view.
+  - Polish candidate detail page (`/recruiter/applicants/[id]`) with resume data, skills, and status transition selector.
+- **Step 5.3: Recruiter Jobs & Company (`/recruiter/jobs`, `/recruiter/company`, `/recruiter/team`):**
+  - Refine job listing table with toggle switches and modal deletion confirmation.
+  - Polish company profile view and team member management modal (`invite-member-modal.tsx`).
+- **Step 5.4: Admin Overview & Moderation (`/admin/dashboard`):**
+  - 6 platform metric cards, job moderation listing with instant visibility toggles, and recent user signups.
+- **Step 5.5: Admin Audit Trail (`/admin/audit-log`):**
+  - High-density, readable tabular audit log with action filter pills, timestamp formatting, and payload inspector.
+- **Verification:** Run `npm run build` and verify recruiter/admin authorization boundaries.
 
 ---
 
-## 10. Animations & Micro-interactions
+### Phase 6: Quality, Loading Skeletons, a11y & Verification
+*Target: Complete polish, loading state parity, accessibility standards, and end-to-end verification.*
+- **Step 6.1: Full Loading Skeletons Parity:**
+  - Create/standardize missing `loading.tsx` files across all routes with page-matching `Skeleton` layouts.
+- **Step 6.2: Accessibility (a11y) & Contrast Review:**
+  - Add skip-to-content links, ensure all icon buttons have `aria-label`, verify WCAG AA contrast for text, and check focus-visible rings.
+- **Step 6.3: Theme Contrast Verification:**
+  - Audit every page in both light and dark modes to guarantee zero low-contrast text or un-themed light pastel cards.
+- **Step 6.4: Full Test Suite & Build Verification:**
+  - `npm run build` (Turbopack compile across all routes)
+  - `npx tsc --noEmit` (strict TypeScript validation)
+  - `npx tsx scripts/test-phase8-hardening.ts` (Phase 8 hardening verification)
+  - `npx tsx scripts/test-rate-limit.ts` (Rate limit suite verification)
 
-### Current State
-- `tw-animate-css` imported but barely used
-- 2 custom keyframes (`fadeIn`, `slideUp`)
-- Radix dialog has open/close animations
-- Cards have `hover:shadow-md hover:border-indigo-200 transition-all`
+---
 
-### Enhancement Plan
+## 6. Detailed File Change Manifest
 
-| Pattern | Implementation | Where |
-|---------|---------------|-------|
-| **Page entrance** | Staggered fade-up for card grids | All list pages |
-| **Card hover** | Subtle lift (translateY -2px) + border color shift + shadow elevation | All cards |
-| **Button press** | Scale down to 0.97 on active | All buttons |
-| **Tab switch** | Sliding active indicator | All tab components |
-| **Sidebar expand/collapse** | Width transition 240px ↔ 64px | Sidebar |
-| **Modal enter/exit** | Backdrop fade + content slide-up | All dialogs |
-| **Toast enter** | Slide in from right | Sonner (already configured) |
-| **Stat counter** | Count-up animation on mount | Dashboard stat cards |
-| **Progress bars** | Width transition on mount | Skill scores, ATS scores |
-| **Skeleton shimmer** | Gradient sweep animation | All loading states |
-
-### CSS Additions to `globals.css`
-
-```css
-@keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-@keyframes countUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes slideInRight {
-  from { opacity: 0; transform: translateX(16px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
+### New Files to Create (~16 files)
 ```
+src/components/theme/
+├── theme-provider.tsx               # Next-themes client wrapper
+└── theme-toggle.tsx                 # Sun/Moon/System theme switcher button
 
----
-
-## 11. Responsive Design
-
-### Current Breakpoint Usage
-
-```
-sm (640px):  Grid column changes, padding adjustments
-md (768px):  Desktop nav shown, mobile nav hidden
-lg (1024px): 3-column grids, table views
-xl (1280px): Wider grids
-```
-
-### Proposed Improvements
-
-| Area | Current | Proposed |
-|------|---------|----------|
-| **Mobile navigation** | Horizontal scroll overflow bar | Fixed bottom tab bar (5 items + "More" sheet) |
-| **Sidebar** | None | Desktop: 240px sidebar. Tablet: icon-only 64px. Mobile: hidden (use bottom nav) |
-| **Dashboard grids** | 1→2→4 cols | 1→2→3 cols with consistent card heights |
-| **Data tables** | Desktop: table / Mobile: card grid | Shared `DataTable` with responsive mode switch |
-| **Forms** | Single column always | 2-column layout on desktop for settings/profile forms |
-| **Modals** | Fixed center | Mobile: full-screen bottom sheet. Desktop: centered dialog |
-| **Touch targets** | Some buttons are 32px height | Minimum 44px height on all interactive elements |
-
----
-
-## 12. Accessibility
-
-### Current Assessment
-- ✅ Radix primitives provide ARIA roles, focus traps, keyboard nav
-- ⚠️ Custom buttons/inputs lack explicit `aria-label`
-- ⚠️ No skip-to-content link
-- ⚠️ Color contrast needs audit (muted-foreground may fail WCAG AA)
-- ⚠️ SVG radar chart has no `aria-label` or text alternative
-- ❌ No reduced-motion support (`prefers-reduced-motion`)
-
-### Improvement Plan
-
-1. Add skip-to-content link in root layout
-2. Add `aria-label` to all icon-only buttons
-3. Audit and fix color contrast ratios (OKLCH values)
-4. Add `@media (prefers-reduced-motion: reduce)` to disable animations
-5. Add `alt` text to all decorative images
-6. Ensure all form inputs have associated `<Label>` components
-7. Add `aria-live="polite"` regions for dynamic content updates (toast, filter results)
-
----
-
-## 13. Library Integration Strategy
-
-### Libraries to Add
-
-| Library | Purpose | Size Impact |
-|---------|---------|-------------|
-| `next-themes` | Dark/light mode provider | ~2KB |
-| `framer-motion` **(if user approves)** | Page transitions, staggered animations | ~30KB (tree-shaken) |
-| Chart library **(awaiting user choice)** | Dashboard visualizations | Varies |
-
-### Libraries to Leverage (Already Installed)
-
-| Library | Current Usage | Expanded Usage |
-|---------|--------------|----------------|
-| `class-variance-authority` | Badge, Alert only | All buttons, inputs, cards |
-| `tailwind-merge` + `clsx` | `cn()` helper | Continue as-is |
-| `tw-animate-css` | Imported but barely used | Leverage for Radix enter/exit |
-| `lucide-react` | Icons everywhere | Continue — add to sidebar nav |
-| `sonner` | Toasts | Continue — already well configured |
-| `@radix-ui/*` | 6 primitives | Consider adding `Tooltip`, `Popover` via shadcn |
-
-### Libraries NOT to Add
-- No Chakra UI, Ant Design, or Material UI
-- No additional CSS-in-JS libraries
-- No additional icon libraries
-- Only what the user explicitly provides
-
----
-
-## 14. Implementation Phases
-
-### Phase 1: Foundation (Estimated: 2-3 sessions)
-**"Install primitives & build the design system"**
-
-1. Install missing shadcn/ui components (`button`, `card`, `input`, `label`, `tabs`, `tooltip`, `sheet`, `skeleton`, `progress`, `table`, `popover`, `command`, `scroll-area`, `switch`)
-2. Refine `globals.css` tokens (add success/warning/info colors, shadow scale)
-3. Create shared components (`PageHeader`, `EmptyState`, `StatCard`, `StatusBadge`, `SearchInput`, `SectionCard`, `ConfirmDialog`)
-4. Install `next-themes`, create `ThemeProvider` and `ThemeToggle`
-5. Build new layout components (`AppSidebar`, `AppHeader`, `MobileBottomNav`, `BreadcrumbNav`)
-
-### Phase 2: App Shell & Navigation (Estimated: 1-2 sessions)
-**"Replace all 3 layouts with unified sidebar shell"**
-
-1. Update `(student)/layout.tsx` — Replace header-only nav with sidebar + header shell
-2. Update `(recruiter)/layout.tsx` — Same shell, different nav items
-3. Update `(admin)/layout.tsx` — Same shell, admin nav items
-4. Implement mobile bottom tab bar
-5. Add breadcrumb auto-generation
-6. Add dark mode toggle to header
-7. Verify all routes render correctly with new shell
-
-### Phase 3: Core Page Redesigns (Estimated: 3-4 sessions)
-**"Rebuild pages using shared components"**
-
-1. **Student Dashboard** — Build proper hub page
-2. **Jobs page** — Replace inline styles with primitives
-3. **Applications page** — Use `Tabs`, `SearchInput`, `Card`
-4. **Interviews page** — Use `StatCard`, improve interview room
-5. **Resume page** — Animated score rings, improved keyword cloud
-6. **Career/Skill Gap pages** — Improved roadmap view, bar charts
-7. **Profile page** — 2-column form layout
-
-### Phase 4: Recruiter & Admin Pages (Estimated: 2 sessions)
-**"Unify recruiter/admin dashboards"**
-
-1. **Recruiter Dashboard** — Shared `StatCard`, add charts
-2. **Recruiter Applicants** — `DataTable` shared component
-3. **Admin Dashboard** — Charts, trend visualizations
-4. **Admin Audit Log** — `DataTable` with date range picker
-
-### Phase 5: Polish & Delight (Estimated: 1-2 sessions)
-**"Animations, loading states, accessibility"**
-
-1. Add `loading.tsx` skeletons to all routes
-2. Add page entrance animations (staggered fade-up)
-3. Add micro-interactions (button press, card hover, tab slide)
-4. Add chart animations (count-up, draw-in)
-5. Accessibility audit and fixes
-6. Dark mode testing across all pages
-7. Landing page enhancement
-8. Mobile testing and refinements
-
----
-
-## 15. Files to Change
-
-### New Files to Create (~25 files)
-
-```
-src/components/layout/
-├── app-sidebar.tsx
-├── app-header.tsx
-├── mobile-bottom-nav.tsx
-├── mobile-nav-sheet.tsx
-├── breadcrumb-nav.tsx
-├── theme-toggle.tsx
-├── theme-provider.tsx
-├── portal-switcher.tsx
-└── sidebar-nav-item.tsx
+src/components/ui/
+├── button.tsx                       # Unified button primitive (cva variants)
+├── card.tsx                         # Unified card container primitives
+├── input.tsx                        # Unified text input primitive
+├── label.tsx                        # Accessible label primitive
+├── tabs.tsx                         # Sliding pill tabs primitive
+├── skeleton.tsx                     # Shimmer/pulse loading primitive
+├── progress.tsx                     # Accessible progress bar primitive
+└── tooltip.tsx                      # Icon hint tooltip primitive
 
 src/components/shared/
-├── stat-card.tsx
-├── page-header.tsx
-├── empty-state.tsx
-├── status-badge.tsx
-├── search-input.tsx
-├── filter-bar.tsx
-├── section-card.tsx
-├── confirm-dialog.tsx
-├── data-table.tsx
-└── metric-chart.tsx
+├── page-header.tsx                  # Standard page header with breadcrumbs and actions
+├── stat-card.tsx                    # Reusable SaaS metric/stat card with trend support
+├── empty-state.tsx                  # Reusable empty state view
+├── status-badge.tsx                 # Centralized status pill component
+├── search-input.tsx                 # Debounced search box
+└── confirm-dialog.tsx               # Standard modal confirmation dialog
 
-src/components/ui/ (via shadcn install)
-├── button.tsx
-├── card.tsx
-├── input.tsx
-├── label.tsx
-├── tabs.tsx
-├── tooltip.tsx
-├── sheet.tsx
-├── skeleton.tsx
-├── progress.tsx
-├── table.tsx
-├── popover.tsx
-├── command.tsx
-├── scroll-area.tsx
-└── switch.tsx
+src/components/layout/
+├── sidebar.tsx                      # Collapsible desktop SaaS sidebar
+├── top-header.tsx                   # Sticky top header with breadcrumbs & user profile
+├── mobile-nav.tsx                   # Mobile bottom tab bar & drawer
+└── app-shell.tsx                    # Unified responsive shell wrapper
 ```
 
-### Files to Modify (~35 files)
-
+### Files to Relocate (1 file)
 ```
-Layouts (4):
-  src/app/(student)/layout.tsx
-  src/app/(recruiter)/layout.tsx
-  src/app/(admin)/layout.tsx
-  src/app/layout.tsx
+src/app/dashboard/page.tsx → src/app/(student)/dashboard/page.tsx
+# Reason: Allows student dashboard to inherit the student shell and Clerk context while keeping the exact /dashboard URL.
+```
 
-Global Styles (1):
-  src/app/globals.css
+### Layouts to Update (4 files)
+```
+src/app/layout.tsx                   # Add ThemeProvider and Toaster theme alignment
+src/app/(student)/layout.tsx         # Replace top-only nav with AppShell
+src/app/(recruiter)/layout.tsx       # Replace top-only nav with AppShell
+src/app/(admin)/layout.tsx           # Replace top-only nav with AppShell
+```
 
-Pages (~15):
-  src/app/page.tsx  (landing)
-  src/app/(student)/jobs/page.tsx
-  src/app/(student)/applications/page.tsx
-  src/app/(student)/interviews/page.tsx
-  src/app/(student)/interviews/[id]/page.tsx
-  src/app/(student)/resume/page.tsx
-  src/app/(student)/career/page.tsx
-  src/app/(student)/skill-gap/page.tsx
-  src/app/(student)/profile/page.tsx
-  src/app/(student)/experiences/page.tsx
-  src/app/(recruiter)/recruiter/dashboard/page.tsx
-  src/app/(recruiter)/recruiter/applicants/page.tsx
-  src/app/(recruiter)/recruiter/jobs/page.tsx
-  src/app/(admin)/admin/dashboard/page.tsx
-  src/app/(admin)/admin/audit-log/page.tsx
+### Pages to Update (~16 files)
+```
+src/app/page.tsx                     # Premium SaaS landing page polish
+src/app/(auth)/layout.tsx            # Clean auth container styling
+src/app/(student)/jobs/page.tsx      # Standardized cards, filters, and header
+src/app/(student)/jobs/[id]/page.tsx # Polished 2-column detail view
+src/app/(student)/applications/page.tsx
+src/app/(student)/applications/[id]/page.tsx
+src/app/(student)/interviews/page.tsx
+src/app/(student)/interviews/new/page.tsx
+src/app/(student)/interviews/[id]/page.tsx
+src/app/(student)/resume/page.tsx
+src/app/(student)/career/page.tsx
+src/app/(student)/skill-gap/page.tsx
+src/app/(recruiter)/recruiter/dashboard/page.tsx
+src/app/(recruiter)/recruiter/applicants/page.tsx
+src/app/(admin)/admin/dashboard/page.tsx
+src/app/(admin)/admin/audit-log/page.tsx
+```
 
-Components (~15):
-  src/components/jobs/job-card.tsx
-  src/components/jobs/job-filters.tsx
-  src/components/applications/application-card.tsx
-  src/components/applications/applications-list-client.tsx
-  src/components/applications/recruiter-applicants-client.tsx
-  src/components/interviews/interview-card.tsx
-  src/components/interviews/create-interview-form.tsx
-  src/components/interviews/interview-agent.tsx
-  src/components/resume/resume-analysis-view.tsx
-  src/components/resume/resume-uploader.tsx
-  src/components/career/skill-gap-view.tsx
-  src/components/career/career-roadmap-view.tsx
-  src/components/career/recommendations-section.tsx
-  src/components/subscription/email-subscription-card.tsx
-  src/components/student/profile-form.tsx
-
-Loading States (8+ new):
-  Various loading.tsx files across routes
+### Feature Components to Refactor (~12 files)
+```
+src/components/jobs/job-card.tsx
+src/components/jobs/job-filters.tsx
+src/components/applications/application-card.tsx
+src/components/applications/applications-list-client.tsx
+src/components/applications/recruiter-applicants-client.tsx
+src/components/interviews/interview-card.tsx
+src/components/interviews/feedback-view.tsx
+src/components/resume/resume-analysis-view.tsx
+src/components/resume/resume-uploader.tsx
+src/components/career/skill-gap-view.tsx
+src/components/career/career-roadmap-view.tsx
+src/components/subscription/email-subscription-card.tsx
 ```
 
 ---
 
-## 16. Risks & Mitigations
+## 7. Execution Rules & Safety Safeguards
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Breaking existing server actions/business logic | High | Layout/component changes only touch JSX rendering — NO modifications to `src/actions/*`, `src/lib/*`, `src/schemas/*`, or Prisma schema |
-| Clerk auth disrupted by layout change | High | `ClerkProvider` placement pattern preserved exactly. Only the JSX structure inside changes |
-| CSP headers block new resources | Medium | If new libraries need external resources, update `next.config.ts` CSP accordingly |
-| Performance regression from animation library | Medium | Use CSS animations first. Framer-motion only if user approves, tree-shaken |
-| Dark mode breaks existing inline color classes | Medium | Audit all hardcoded colors (e.g., `bg-indigo-50`, `text-indigo-700`) and add dark: variants |
-| Mobile bottom nav overlaps page content | Low | Add `pb-16` to main content area on mobile |
-| Sidebar width breaks narrow content | Low | Content area uses `flex-1` — naturally adapts |
+1. **Sequential Execution:** Never execute multiple phases simultaneously. Complete Phase 1 fully, test and verify, then proceed to Phase 2.
+2. **Typecheck Guarantee:** `npx tsc --noEmit` must return 0 errors after every phase.
+3. **Build Guarantee:** `npm run build` must succeed after every phase with all routes compiling.
+4. **Logic Immutability:** Never modify action files (`src/actions/*`), API handlers (`src/app/api/*`), database queries (`src/lib/db.ts`), or Prisma schema.
+5. **No Phantom Content:** Never introduce mock data or placeholders that misrepresent the real state of the user's database.
 
 ---
-
-## Open Questions for User
-
-> [!IMPORTANT]
-> Before starting implementation, I need your decisions on:
-
-1. **Chart library preference** — Recharts, Tremor, Chart.js, or keep custom SVG?
-2. **Animation library** — Pure CSS animations, or add `framer-motion` for page transitions?
-3. **Libraries.dev components** — You mentioned providing specific library prompts/components. Please share them so I can integrate them into the plan.
-4. **Landing page scope** — Full marketing page redesign, or just polish the existing one?
-5. **Sidebar vs. Header-only navigation** — Confirmed you want a sidebar, or prefer an enhanced top-nav-only approach?
+*End of Master Plan. Implementation will strictly follow this document upon receiving user approval.*

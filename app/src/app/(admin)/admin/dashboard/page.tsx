@@ -58,29 +58,31 @@ export default async function AdminDashboardPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded-md bg-red-100 text-red-800 text-[10px] font-bold uppercase tracking-wider">
-              System Admin
-            </span>
-            <span className="text-xs text-muted-foreground">Governance & Analytics</span>
+      <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-card via-card to-rose-500/5 p-6 sm:p-8 shadow-xs shadow-inner-glow">
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 text-[10px] font-bold uppercase tracking-wider">
+                System Admin
+              </span>
+              <span className="text-xs text-muted-foreground">Governance & Intelligence</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground mt-2">
+              Platform Administration
+            </h1>
+            <p className="text-muted-foreground text-sm mt-1 max-w-xl">
+              Real-time analytics, content moderation, and compliance audit trail across all colleges and recruiters.
+            </p>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground mt-1">
-            Platform Administration
-          </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            Real-time analytics, content moderation, and compliance audit trail across all colleges and recruiters.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/admin/audit-log"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-card border text-foreground text-xs font-semibold hover:bg-muted/40 transition-colors shadow-2xs"
-          >
-            <Activity className="h-3.5 w-3.5 text-muted-foreground" />
-            <span>Audit Log Viewer</span>
-          </Link>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              href="/admin/audit-log"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-card border border-border text-foreground text-xs font-semibold hover:bg-muted/60 transition-colors shadow-2xs"
+            >
+              <Activity className="h-3.5 w-3.5 text-muted-foreground" />
+              <span>Audit Log Viewer</span>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -91,65 +93,67 @@ export default async function AdminDashboardPage() {
           value={analytics.users.total}
           subtext={`${analytics.users.students} std · ${analytics.users.recruiters} rec`}
           color="indigo"
-          icon={<Users className="h-4 w-4 text-indigo-600" />}
+          icon={<Users className="h-4 w-4" />}
         />
         <AnalyticsCard
           label="Companies"
           value={analytics.companies.total}
           subtext="Verified recruiters"
           color="violet"
-          icon={<Building2 className="h-4 w-4 text-violet-600" />}
+          icon={<Building2 className="h-4 w-4" />}
         />
         <AnalyticsCard
           label="Jobs"
           value={analytics.jobs.total}
           subtext={`${analytics.jobs.active} active · ${analytics.jobs.hidden} hidden`}
           color="emerald"
-          icon={<Briefcase className="h-4 w-4 text-emerald-600" />}
+          icon={<Briefcase className="h-4 w-4" />}
         />
         <AnalyticsCard
           label="Applications"
           value={analytics.applications.total}
           subtext="Submitted placements"
           color="amber"
-          icon={<TrendingUp className="h-4 w-4 text-amber-600" />}
+          icon={<TrendingUp className="h-4 w-4" />}
         />
         <AnalyticsCard
           label="Mock Interviews"
           value={analytics.interviews.total}
           subtext={`${analytics.interviews.completed} completed`}
           color="purple"
-          icon={<Mic className="h-4 w-4 text-purple-600" />}
+          icon={<Mic className="h-4 w-4" />}
         />
         <AnalyticsCard
           label="Subscribers"
           value={analytics.subscriptions.active}
           subtext={`${analytics.subscriptions.total} total`}
           color="rose"
-          icon={<Mail className="h-4 w-4 text-rose-600" />}
+          icon={<Mail className="h-4 w-4" />}
         />
       </div>
 
       {/* AI Intelligence Metrics Row */}
-      <div className="p-5 sm:p-6 rounded-3xl border bg-gradient-to-r from-indigo-50/50 via-card to-card shadow-2xs">
+      <div className="p-5 sm:p-6 rounded-3xl border border-border bg-card shadow-xs shadow-inner-glow">
         <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="h-4 w-4 text-indigo-600" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary dark:text-indigo-400 border border-primary/20">
+            <Sparkles className="h-4 w-4" />
+          </div>
           <h2 className="font-bold text-sm text-foreground">AI Intelligence & Placement Throughput</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="p-4 rounded-2xl bg-card border shadow-2xs">
+          <div className="p-4 rounded-2xl bg-muted/20 border border-border/80 shadow-2xs">
             <p className="text-xs text-muted-foreground font-semibold">Resumes Analyzed (ATS)</p>
-            <p className="text-2xl font-black text-foreground mt-1">{analytics.aiMetrics.resumesAnalyzed}</p>
+            <p className="text-2xl font-black text-foreground mt-1 tabular-nums">{analytics.aiMetrics.resumesAnalyzed}</p>
             <p className="text-[11px] text-muted-foreground mt-0.5">Parsed with Gemini 2.5 Flash</p>
           </div>
-          <div className="p-4 rounded-2xl bg-card border shadow-2xs">
+          <div className="p-4 rounded-2xl bg-muted/20 border border-border/80 shadow-2xs">
             <p className="text-xs text-muted-foreground font-semibold">Skill Gaps Computed</p>
-            <p className="text-2xl font-black text-foreground mt-1">{analytics.aiMetrics.skillGapsCalculated}</p>
+            <p className="text-2xl font-black text-foreground mt-1 tabular-nums">{analytics.aiMetrics.skillGapsCalculated}</p>
             <p className="text-[11px] text-muted-foreground mt-0.5">Market readiness calibrations</p>
           </div>
-          <div className="p-4 rounded-2xl bg-card border shadow-2xs">
+          <div className="p-4 rounded-2xl bg-muted/20 border border-border/80 shadow-2xs">
             <p className="text-xs text-muted-foreground font-semibold">Career Roadmaps Active</p>
-            <p className="text-2xl font-black text-foreground mt-1">{analytics.aiMetrics.roadmapsGenerated}</p>
+            <p className="text-2xl font-black text-foreground mt-1 tabular-nums">{analytics.aiMetrics.roadmapsGenerated}</p>
             <p className="text-[11px] text-muted-foreground mt-0.5">Structured milestone guides</p>
           </div>
         </div>
@@ -158,11 +162,11 @@ export default async function AdminDashboardPage() {
       {/* Main Admin Section: Content Moderation & Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Content Moderation Area (2 Cols) */}
-        <div className="lg:col-span-2 rounded-3xl border bg-card p-5 sm:p-6 shadow-2xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b">
+        <div className="lg:col-span-2 rounded-3xl border border-border bg-card p-5 sm:p-6 shadow-xs shadow-inner-glow space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-border/80">
             <div>
               <h2 className="font-bold text-base text-foreground flex items-center gap-2">
-                <ShieldAlert className="h-4 w-4 text-indigo-600" />
+                <ShieldAlert className="h-4 w-4 text-primary" />
                 Job Listing Moderation
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -192,7 +196,7 @@ export default async function AdminDashboardPage() {
                       <Link
                         href={`/jobs/${job.id}`}
                         target="_blank"
-                        className="font-semibold text-foreground hover:text-indigo-600 transition-colors block truncate max-w-[200px]"
+                        className="font-semibold text-foreground hover:text-primary transition-colors block truncate max-w-[200px]"
                       >
                         {job.title}
                       </Link>
@@ -209,7 +213,7 @@ export default async function AdminDashboardPage() {
                       </span>
                     </td>
                     <td className="py-3 px-3">
-                      <span className="px-2 py-0.5 rounded-md bg-muted text-muted-foreground text-[10px] font-medium">
+                      <span className="px-2 py-0.5 rounded-md bg-muted text-muted-foreground text-[10px] font-medium border border-border/80">
                         {job.category}
                       </span>
                     </td>
@@ -231,12 +235,12 @@ export default async function AdminDashboardPage() {
         </div>
 
         {/* Audit Log Snippet & Recent Activity (1 Col) */}
-        <div className="rounded-3xl border bg-card p-5 sm:p-6 shadow-2xs space-y-4 flex flex-col justify-between">
+        <div className="rounded-3xl border border-border bg-card p-5 sm:p-6 shadow-xs shadow-inner-glow space-y-4 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between pb-3 border-b">
+            <div className="flex items-center justify-between pb-3 border-b border-border/80">
               <div>
                 <h2 className="font-bold text-base text-foreground flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-rose-600" />
+                  <Activity className="h-4 w-4 text-rose-500" />
                   Recent Audit Trail
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -245,7 +249,7 @@ export default async function AdminDashboardPage() {
               </div>
               <Link
                 href="/admin/audit-log"
-                className="text-xs font-semibold text-rose-600 hover:text-rose-800 transition-colors"
+                className="text-xs font-semibold text-primary hover:opacity-80 transition-opacity"
               >
                 Full Viewer →
               </Link>
@@ -280,7 +284,7 @@ export default async function AdminDashboardPage() {
 
           <Link
             href="/admin/audit-log"
-            className="w-full text-center py-2 px-3 rounded-xl border border-dashed text-xs font-semibold text-muted-foreground hover:text-foreground hover:border-border transition-colors block"
+            className="w-full text-center py-2.5 px-3 rounded-xl border border-dashed border-border/80 text-xs font-semibold text-muted-foreground hover:text-foreground hover:border-border transition-colors block"
           >
             Inspect full audit trail
           </Link>
@@ -288,7 +292,7 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Recent User Signups */}
-      <div className="rounded-3xl border bg-card p-5 sm:p-6 shadow-2xs space-y-3">
+      <div className="rounded-3xl border border-border bg-card p-5 sm:p-6 shadow-xs shadow-inner-glow space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-bold text-sm text-foreground">Recent Registrations</h2>
           <span className="text-xs text-muted-foreground">Latest registered platform members</span>
@@ -297,7 +301,7 @@ export default async function AdminDashboardPage() {
           {analytics.recentSignups.map((su) => (
             <div
               key={su.id}
-              className="p-3.5 rounded-2xl border bg-muted/20 flex items-center justify-between gap-3"
+              className="p-3.5 rounded-2xl border border-border/80 bg-muted/20 flex items-center justify-between gap-3 hover:bg-muted/40 transition-colors"
             >
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-foreground truncate">
@@ -331,21 +335,23 @@ function AnalyticsCard({
   color: "indigo" | "violet" | "emerald" | "amber" | "purple" | "rose";
   icon: React.ReactNode;
 }) {
-  const colorClasses = {
-    indigo: "bg-indigo-50/60 border-indigo-100",
-    violet: "bg-violet-50/60 border-violet-100",
-    emerald: "bg-emerald-50/60 border-emerald-100",
-    amber: "bg-amber-50/60 border-amber-100",
-    purple: "bg-purple-50/60 border-purple-100",
-    rose: "bg-rose-50/60 border-rose-100",
+  const colorMap = {
+    indigo: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
+    violet: "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20",
+    emerald: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+    amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+    purple: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
+    rose: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
   };
 
   return (
-    <div className={`p-4 rounded-2xl border ${colorClasses[color]} shadow-2xs`}>
+    <div className="p-4 rounded-2xl border border-border bg-card shadow-xs shadow-inner-glow transition-all hover:-translate-y-0.5 hover:shadow-sm">
       <div className="flex items-center justify-between mb-2">
-        <span className="p-1 rounded-md bg-white/90 shadow-2xs">{icon}</span>
+        <div className={`p-1.5 rounded-lg border shadow-2xs ${colorMap[color]}`}>
+          {icon}
+        </div>
       </div>
-      <p className="text-2xl font-black text-foreground">{value}</p>
+      <p className="text-2xl font-black text-foreground tabular-nums">{value}</p>
       <p className="text-xs font-bold text-foreground/80 mt-0.5">{label}</p>
       <p className="text-[10px] text-muted-foreground truncate mt-0.5">{subtext}</p>
     </div>
@@ -355,31 +361,31 @@ function AnalyticsCard({
 function getAuditActionBadge(action: AuditAction): string {
   switch (action) {
     case AuditAction.CREATE:
-      return "bg-emerald-100 text-emerald-800";
+      return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20";
     case AuditAction.UPDATE:
-      return "bg-blue-100 text-blue-800";
+      return "bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20";
     case AuditAction.DELETE:
-      return "bg-rose-100 text-rose-800";
+      return "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20";
     case AuditAction.STATUS_CHANGE:
-      return "bg-purple-100 text-purple-800";
+      return "bg-violet-500/10 text-violet-700 dark:text-violet-400 border border-violet-500/20";
     case AuditAction.APPLY:
-      return "bg-amber-100 text-amber-800";
+      return "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20";
     case AuditAction.EXPORT:
-      return "bg-indigo-100 text-indigo-800";
+      return "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20";
     default:
-      return "bg-muted text-muted-foreground";
+      return "bg-muted text-muted-foreground border border-border";
   }
 }
 
 function getUserRoleBadge(role: UserRole): string {
   switch (role) {
     case UserRole.ADMIN:
-      return "bg-red-100 text-red-800";
+      return "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20";
     case UserRole.RECRUITER:
-      return "bg-indigo-100 text-indigo-800";
+      return "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20";
     case UserRole.STUDENT:
-      return "bg-emerald-100 text-emerald-800";
+      return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20";
     default:
-      return "bg-muted text-muted-foreground";
+      return "bg-muted text-muted-foreground border border-border";
   }
 }

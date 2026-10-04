@@ -49,7 +49,7 @@ export function RecommendationsSection({
             <h2 className="text-lg font-bold text-foreground tracking-tight">
               {title}
             </h2>
-            <span className="rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+            <span className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary dark:text-indigo-400">
               Live AI
             </span>
           </div>
@@ -85,8 +85,8 @@ export function RecommendationsSection({
           ))}
         </div>
       ) : (
-        <div className="rounded-3xl border bg-card p-8 text-center space-y-4">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+        <div className="rounded-3xl border bg-card p-8 text-center space-y-4 shadow-inner-glow">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground">
             <Lightbulb className="h-6 w-6" />
           </div>
           <div className="space-y-1">

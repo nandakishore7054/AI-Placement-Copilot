@@ -1,5 +1,4 @@
-// src/components/layout/index.ts
-// Layout components: Navbar, Sidebar, Footer
-// Phase 1: directory placeholder — implemented in Phase 3
-
-export {};
+export * from "./sidebar";
+export * from "./top-header";
+export * from "./mobile-nav";
+export * from "./app-shell";

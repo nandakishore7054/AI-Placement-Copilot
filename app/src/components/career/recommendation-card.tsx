@@ -51,37 +51,37 @@ export function RecommendationCard({
     JOB: {
       label: "Job Match",
       icon: Briefcase,
-      color: "text-indigo-700 bg-indigo-50 border-indigo-200",
+      color: "text-indigo-700 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
       accent: "border-indigo-500/20 hover:border-indigo-500/40",
     },
     SKILL: {
       label: "Skill Gap",
       icon: Target,
-      color: "text-amber-700 bg-amber-50 border-amber-200",
+      color: "text-amber-700 dark:text-amber-400 bg-amber-500/10 border-amber-500/20",
       accent: "border-amber-500/20 hover:border-amber-500/40",
     },
     INTERVIEW: {
       label: "Mock Interview",
       icon: Mic,
-      color: "text-violet-700 bg-violet-50 border-violet-200",
+      color: "text-violet-700 dark:text-violet-400 bg-violet-500/10 border-violet-500/20",
       accent: "border-violet-500/20 hover:border-violet-500/40",
     },
     COURSE: {
       label: "Learning Path",
       icon: BookOpen,
-      color: "text-emerald-700 bg-emerald-50 border-emerald-200",
+      color: "text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
       accent: "border-emerald-500/20 hover:border-emerald-500/40",
     },
     EXPERIENCE: {
       label: "Project Milestone",
       icon: Code2,
-      color: "text-sky-700 bg-sky-50 border-sky-200",
+      color: "text-sky-700 dark:text-sky-400 bg-sky-500/10 border-sky-500/20",
       accent: "border-sky-500/20 hover:border-sky-500/40",
     },
   }[recommendation.type] || {
     label: "Recommendation",
     icon: Sparkles,
-    color: "text-indigo-700 bg-indigo-50 border-indigo-200",
+    color: "text-indigo-700 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
     accent: "border-indigo-500/20",
   };
 
@@ -120,7 +120,7 @@ export function RecommendationCard({
   return (
     <div
       className={cn(
-        "group relative flex flex-col justify-between rounded-3xl border bg-card p-5 transition-all shadow-2xs hover:shadow-xs",
+        "group relative flex flex-col justify-between rounded-3xl border border-border bg-card p-5 transition-all shadow-xs shadow-inner-glow hover:shadow-sm",
         typeConfig.accent,
         recommendation.isActioned ? "opacity-75 bg-muted/20" : ""
       )}
@@ -164,9 +164,9 @@ export function RecommendationCard({
       </div>
 
       {/* Footer CTA */}
-      <div className="pt-4 mt-2 border-t flex items-center justify-between gap-2">
+      <div className="pt-4 mt-2 border-t border-border/80 flex items-center justify-between gap-2">
         {recommendation.isActioned ? (
-          <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+          <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
             <CheckCircle2 className="h-3.5 w-3.5" />
             Completed
           </span>
@@ -179,7 +179,7 @@ export function RecommendationCard({
         <Link
           href={actionUrl}
           onClick={handleAction}
-          className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors group-hover:translate-x-0.5 transition-transform"
+          className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:opacity-80 transition-opacity group-hover:translate-x-0.5 transition-transform"
         >
           <span>{actionLabel}</span>
           <ArrowRight className="h-3 w-3" />

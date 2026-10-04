@@ -71,8 +71,8 @@ export default async function CareerPage({ searchParams }: PageProps) {
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
               Career Intelligence Hub
             </h1>
-            <span className="rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700">
-              Phase 6
+            <span className="rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[11px] font-bold text-primary dark:text-indigo-400">
+              AI Roadmap
             </span>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
@@ -84,16 +84,16 @@ export default async function CareerPage({ searchParams }: PageProps) {
         <div className="flex items-center gap-2">
           <Link
             href="/skill-gap"
-            className="inline-flex items-center gap-1.5 rounded-xl border bg-card px-3.5 py-2 text-xs font-bold text-foreground hover:bg-muted transition-colors cursor-pointer shadow-2xs"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-bold text-foreground hover:bg-muted transition-colors cursor-pointer shadow-2xs"
           >
-            <Target className="h-3.5 w-3.5 text-indigo-600" />
+            <Target className="h-3.5 w-3.5 text-primary" />
             <span>Skill Gap Analysis</span>
           </Link>
           <Link
             href="/career/insights"
-            className="inline-flex items-center gap-1.5 rounded-xl border bg-card px-3.5 py-2 text-xs font-bold text-foreground hover:bg-muted transition-colors cursor-pointer shadow-2xs"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-bold text-foreground hover:bg-muted transition-colors cursor-pointer shadow-2xs"
           >
-            <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+            <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
             <span>Market Insights</span>
           </Link>
         </div>
@@ -113,7 +113,7 @@ export default async function CareerPage({ searchParams }: PageProps) {
                 href={`/career?id=${r.id}`}
                 className={`rounded-2xl border px-3 py-1.5 text-xs font-medium transition-all ${
                   isSelected
-                    ? "border-indigo-600 bg-indigo-50 text-indigo-900 font-bold shadow-xs"
+                    ? "border-primary/50 bg-primary/10 text-primary font-bold shadow-xs shadow-inner-glow"
                     : "border-border bg-card text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -133,7 +133,7 @@ export default async function CareerPage({ searchParams }: PageProps) {
           <CareerRoadmapView roadmap={activeRoadmap} />
 
           {/* Form to generate new roadmap */}
-          <div className="pt-4 border-t">
+          <div className="pt-4 border-t border-border/80">
             <GenerateRoadmapForm
               defaultRole={defaultSuggestedRole}
               preferredCategories={profile?.preferredCategories || []}
@@ -143,8 +143,8 @@ export default async function CareerPage({ searchParams }: PageProps) {
       ) : (
         /* Empty / First-Time State */
         <div className="space-y-8">
-          <div className="rounded-3xl border bg-card p-8 sm:p-12 text-center space-y-6 shadow-xs max-w-3xl mx-auto">
-            <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+          <div className="rounded-3xl border border-border bg-card p-8 sm:p-12 text-center space-y-6 shadow-xs shadow-inner-glow max-w-3xl mx-auto">
+            <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary border border-primary/20">
               <Map className="h-8 w-8" />
             </div>
 
@@ -160,24 +160,24 @@ export default async function CareerPage({ searchParams }: PageProps) {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left pt-4">
-              <div className="rounded-2xl border p-4 bg-muted/20 space-y-1.5">
-                <Compass className="h-5 w-5 text-indigo-600 mb-1" />
+              <div className="rounded-2xl border border-border/80 p-4 bg-muted/20 space-y-1.5 shadow-2xs">
+                <Compass className="h-5 w-5 text-primary mb-1" />
                 <h3 className="font-bold text-xs text-foreground">Level Transition</h3>
                 <p className="text-[11px] text-muted-foreground leading-normal">
                   Clear sequencing from Beginner to Intermediate or Senior SDE-1 standards.
                 </p>
               </div>
 
-              <div className="rounded-2xl border p-4 bg-muted/20 space-y-1.5">
-                <Target className="h-5 w-5 text-emerald-600 mb-1" />
+              <div className="rounded-2xl border border-border/80 p-4 bg-muted/20 space-y-1.5 shadow-2xs">
+                <Target className="h-5 w-5 text-emerald-500 mb-1" />
                 <h3 className="font-bold text-xs text-foreground">Portfolio Projects</h3>
                 <p className="text-[11px] text-muted-foreground leading-normal">
                   Concrete full-stack and domain projects to build credible proof of work.
                 </p>
               </div>
 
-              <div className="rounded-2xl border p-4 bg-muted/20 space-y-1.5">
-                <BookOpen className="h-5 w-5 text-violet-600 mb-1" />
+              <div className="rounded-2xl border border-border/80 p-4 bg-muted/20 space-y-1.5 shadow-2xs">
+                <BookOpen className="h-5 w-5 text-violet-500 mb-1" />
                 <h3 className="font-bold text-xs text-foreground">Interview Checkpoints</h3>
                 <p className="text-[11px] text-muted-foreground leading-normal">
                   Curated interview questions and practice topics for each monthly milestone.

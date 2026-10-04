@@ -40,11 +40,11 @@ export default async function ResumePage() {
           {resume.analysis ? (
             <ResumeAnalysisView analysis={resume.analysis} />
           ) : (
-            <div className="rounded-2xl border border-indigo-100 bg-linear-to-r from-indigo-50/70 via-indigo-50/40 to-background p-6 shadow-xs space-y-4">
+            <div className="rounded-3xl border border-primary/20 bg-gradient-to-r from-primary/10 via-card to-card p-6 shadow-xs shadow-inner-glow space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-2xs">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-2xs">
                       <Bot className="h-5 w-5" />
                     </div>
                     <h2 className="text-lg font-bold tracking-tight text-foreground">
@@ -67,9 +67,9 @@ export default async function ResumePage() {
       ) : (
         <div className="space-y-6">
           {/* Uploader Card */}
-          <div className="rounded-2xl border bg-card p-6 shadow-xs space-y-4">
-            <div className="flex items-center gap-3 border-b pb-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+          <div className="rounded-3xl border border-border bg-card p-6 shadow-xs shadow-inner-glow space-y-4">
+            <div className="flex items-center gap-3 border-b border-border/80 pb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
                 <FileText className="h-5 w-5" />
               </div>
               <div>
@@ -87,8 +87,8 @@ export default async function ResumePage() {
 
           {/* Benefits Info Grid */}
           <div className="grid gap-4 sm:grid-cols-3 pt-2">
-            <div className="rounded-2xl border bg-card p-4 space-y-2 shadow-2xs">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+            <div className="rounded-2xl border border-border bg-card p-4 space-y-2 shadow-xs shadow-inner-glow">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20">
                 <Zap className="h-4 w-4" />
               </div>
               <h3 className="font-semibold text-xs text-foreground">
@@ -99,8 +99,8 @@ export default async function ResumePage() {
               </p>
             </div>
 
-            <div className="rounded-2xl border bg-card p-4 space-y-2 shadow-2xs">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+            <div className="rounded-2xl border border-border bg-card p-4 space-y-2 shadow-xs shadow-inner-glow">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20">
                 <ShieldCheck className="h-4 w-4" />
               </div>
               <h3 className="font-semibold text-xs text-foreground">
@@ -111,8 +111,8 @@ export default async function ResumePage() {
               </p>
             </div>
 
-            <div className="rounded-2xl border bg-card p-4 space-y-2 shadow-2xs">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+            <div className="rounded-2xl border border-border bg-card p-4 space-y-2 shadow-xs shadow-inner-glow">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20">
                 <Sparkles className="h-4 w-4" />
               </div>
               <h3 className="font-semibold text-xs text-foreground">

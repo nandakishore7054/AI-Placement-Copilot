@@ -29,7 +29,7 @@ export function StudentProfilePageClient({
   }
 
   return (
-    <div className="p-6 rounded-2xl border bg-card">
+    <div className="p-6 sm:p-8 rounded-3xl border border-border bg-card shadow-xs shadow-inner-glow">
       <StudentProfileForm
         mode="edit"
         profile={profile}

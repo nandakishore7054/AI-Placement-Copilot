@@ -1,6 +1,16 @@
-// src/components/ui/index.ts
-// shadcn/ui components will be added here via `npx shadcn add <component>`
-// Run: npx shadcn add button card badge input label select textarea dialog
-// This file serves as a barrel export once components are installed.
-
-export {};
+export * from "./alert";
+export * from "./avatar";
+export * from "./badge";
+export * from "./button";
+export * from "./card";
+export * from "./dialog";
+export * from "./dropdown-menu";
+export * from "./input";
+export * from "./label";
+export * from "./progress";
+export * from "./select";
+export * from "./separator";
+export * from "./skeleton";
+export * from "./tabs";
+export * from "./textarea";
+export * from "./tooltip";
