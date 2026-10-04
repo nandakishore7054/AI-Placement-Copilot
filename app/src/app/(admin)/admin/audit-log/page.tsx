@@ -79,9 +79,15 @@ export default async function AuditLogPage({ searchParams }: PageProps) {
             Immutable log of all user activities, status changes, AI invocations, and cron executions.
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-xl border">
-          <Activity className="h-3.5 w-3.5 text-rose-500" />
-          <span>{total} Total Audit Records</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground bg-muted/40 px-3 py-1.5 rounded-xl border">
+            <Shield className="h-3.5 w-3.5 text-indigo-500" />
+            <span>Retention Policy: 90 Days</span>
+          </span>
+          <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-xl border">
+            <Activity className="h-3.5 w-3.5 text-rose-500" />
+            <span>{total} Total Audit Records</span>
+          </div>
         </div>
       </div>
 

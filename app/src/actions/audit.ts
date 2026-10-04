@@ -5,8 +5,9 @@
 import { db } from "@/lib/db";
 import { requireUserRole } from "@/lib/auth/helpers";
 import { UserRole, AuditAction, AuditEntity } from "@prisma/client";
-import { AuditLogFiltersSchema, type AuditLogFiltersInput } from "@/schemas/audit";
+import { AuditLogFiltersSchema, AuditRetentionSchema, type AuditLogFiltersInput } from "@/schemas/audit";
 import { IdSchema } from "@/schemas/common";
+import { cleanupOldAuditLogs } from "@/lib/audit";
 
 export type AuditLogFilters = AuditLogFiltersInput;
 
@@ -49,3 +50,13 @@ export async function getUserAuditTrail(targetUserId: string) {
     take: 100,
   });
 }
+
+/**
+ * Admin action to manually trigger audit log retention cleanup (>90 days by default).
+ */
+export async function runAuditLogRetentionCleanupAction(input?: { retentionDays?: number }) {
+  await requireUserRole(UserRole.ADMIN);
+  const { retentionDays } = AuditRetentionSchema.parse(input ?? {});
+  return cleanupOldAuditLogs(retentionDays);
+}
+

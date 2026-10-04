@@ -304,6 +304,8 @@ model Job {
   @@index([isVisible])
   @@index([createdAt(sort: Desc)])
   @@index([companyId])
+  @@index([isVisible, createdAt(sort: Desc)])
+  @@index([companyId, createdAt(sort: Desc)])
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -328,6 +330,7 @@ model Application {
   @@index([appliedAt(sort: Desc)])
   @@index([userId, status]) // Student's applications by status
   @@index([jobId, status]) // Job's applicants by status
+  @@index([userId, appliedAt(sort: Desc)])
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -357,6 +360,7 @@ model Interview {
   @@index([status])
   @@index([createdAt(sort: Desc)])
   @@index([userId, status]) // User's interviews by status
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -430,6 +434,8 @@ model Experience {
   @@index([isVisible])
   @@index([createdAt(sort: Desc)])
   @@index([companyId])
+  @@index([isVisible, createdAt(sort: Desc)])
+  @@index([companyId, createdAt(sort: Desc)])
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -470,7 +476,8 @@ model AuditLog {
   @@index([entityType, entityId]) // Find all logs for an entity
   @@index([userId, createdAt(sort: Desc)]) // User's activity timeline
   @@index([action])
-  @@index([createdAt(sort: Desc)]) // Global activity feed
+  @@index([action, createdAt(sort: Desc)]) // Filter by action in timeline
+  @@index([createdAt(sort: Desc)]) // Global activity feed and 90-day retention range scans
 }
 
 // ════════════════════════════════════════════════════════════════

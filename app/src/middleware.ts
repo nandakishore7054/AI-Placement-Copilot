@@ -42,6 +42,38 @@ export default clerkMiddleware(async (auth, req) => {
   const { userId, redirectToSignIn } = await auth();
   const { nextUrl } = req;
 
+  // ─── CSRF Protection ────────────────────────────────────────────────────────
+  // Enforces Origin verification for browser state-changing requests to /api routes
+  const isStateChangingMethod = ["POST", "PUT", "PATCH", "DELETE"].includes(req.method);
+  if (isStateChangingMethod && nextUrl.pathname.startsWith("/api/")) {
+    const isWebhookOrCron =
+      nextUrl.pathname.startsWith("/api/webhooks/") ||
+      nextUrl.pathname.startsWith("/api/cron/") ||
+      nextUrl.pathname.startsWith("/api/vapi/");
+
+    if (!isWebhookOrCron) {
+      const origin = req.headers.get("origin");
+      const host = req.headers.get("host");
+
+      if (origin && host) {
+        try {
+          const originHost = new URL(origin).host;
+          if (originHost !== host) {
+            return new NextResponse(
+              JSON.stringify({ error: "CSRF check failed: Origin does not match Host" }),
+              { status: 403, headers: { "Content-Type": "application/json" } },
+            );
+          }
+        } catch {
+          return new NextResponse(
+            JSON.stringify({ error: "CSRF check failed: Malformed Origin header" }),
+            { status: 403, headers: { "Content-Type": "application/json" } },
+          );
+        }
+      }
+    }
+  }
+
   // Public API routes pass through without auth
   if (isPublicApiRoute(req)) {
     return NextResponse.next();

@@ -86,3 +86,41 @@ export async function logUpload(
     metadata,
   });
 }
+
+/**
+ * Automatically cleans up audit logs older than the specified retention window (default: 90 days).
+ * Returns the count of deleted records and the cutoff timestamp.
+ */
+export async function cleanupOldAuditLogs(retentionDays: number = 90): Promise<{
+  deletedCount: number;
+  cutoffDate: Date;
+}> {
+  const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+
+  const result = await db.auditLog.deleteMany({
+    where: {
+      createdAt: {
+        lt: cutoffDate,
+      },
+    },
+  });
+
+  // Document the cleanup event in the audit trail itself
+  await createAuditLog({
+    action: AuditAction.DELETE,
+    entityType: AuditEntity.USER,
+    entityId: "system-retention-cleanup",
+    metadata: {
+      operation: "AUDIT_LOG_RETENTION_CLEANUP",
+      retentionDays,
+      cutoffDate: cutoffDate.toISOString(),
+      deletedCount: result.count,
+    },
+  });
+
+  return {
+    deletedCount: result.count,
+    cutoffDate,
+  };
+}
+

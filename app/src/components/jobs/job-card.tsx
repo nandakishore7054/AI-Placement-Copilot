@@ -39,6 +39,7 @@ export function JobCard({
               src={job.company.logoUrl}
               alt={job.company.name}
               fill
+              sizes="48px"
               className="object-contain p-1"
             />
           ) : (

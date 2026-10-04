@@ -122,5 +122,48 @@ export async function deleteFromCloudinary(
   await cld.uploader.destroy(publicId, { resource_type: resourceType });
 }
 
+/**
+ * Takes a Cloudinary image URL and returns an optimized version with
+ * automatic format (f_auto), automatic quality (q_auto), and optional dimensions.
+ * If the URL is not a Cloudinary delivery URL, returns the original URL untouched.
+ */
+export function getOptimizedCloudinaryUrl(
+  url?: string | null,
+  options?: {
+    width?: number;
+    height?: number;
+    crop?: "fill" | "fit" | "limit" | "thumb";
+    quality?: "auto" | "auto:best" | "auto:good" | "auto:eco" | "auto:low" | number;
+  },
+): string {
+  if (!url) return "";
+  if (!url.includes("res.cloudinary.com") || !url.includes("/upload/")) {
+    return url;
+  }
+
+  // Avoid duplicating transformations if already injected
+  if (url.includes("/upload/f_auto") || url.includes("/upload/q_auto")) {
+    return url;
+  }
+
+  const transformations: string[] = ["f_auto"];
+  const quality = options?.quality ?? "auto";
+  transformations.push(`q_${quality}`);
+
+  if (options?.width) {
+    transformations.push(`w_${options.width}`);
+  }
+  if (options?.height) {
+    transformations.push(`h_${options.height}`);
+  }
+  if (options?.crop) {
+    transformations.push(`c_${options.crop}`);
+  }
+
+  const transformString = transformations.join(",");
+  return url.replace("/upload/", `/upload/${transformString}/`);
+}
+
 // Export the configured instance for advanced usage
 export { cloudinary };
+

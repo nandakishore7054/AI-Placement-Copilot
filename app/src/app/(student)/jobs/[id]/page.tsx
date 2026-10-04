@@ -70,6 +70,7 @@ export default async function JobDetailPage({ params }: PageProps) {
                 src={job.company.logoUrl}
                 alt={job.company.name}
                 fill
+                sizes="64px"
                 className="object-contain p-1"
               />
             ) : (

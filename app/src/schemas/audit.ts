@@ -13,3 +13,12 @@ export const AuditLogFiltersSchema = z.object({
 
 export type AuditLogFiltersInput = z.input<typeof AuditLogFiltersSchema>;
 export type AuditLogFiltersOutput = z.output<typeof AuditLogFiltersSchema>;
+
+export const AuditRetentionSchema = z.object({
+  retentionDays: z.coerce.number().int().min(1).max(3650).default(90),
+});
+
+export type AuditRetentionInput = z.input<typeof AuditRetentionSchema>;
+export type AuditRetentionOutput = z.output<typeof AuditRetentionSchema>;
+
+

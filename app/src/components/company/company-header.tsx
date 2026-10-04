@@ -24,6 +24,7 @@ export function CompanyHeader({
             src={company.logoUrl}
             alt={`${company.name} logo`}
             fill
+            sizes="64px"
             className="object-cover"
           />
         ) : (

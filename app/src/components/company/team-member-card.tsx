@@ -80,6 +80,7 @@ export function TeamMemberCard({
             src={member.user.imageUrl}
             alt={`${member.user.firstName} ${member.user.lastName}`}
             fill
+            sizes="40px"
             className="object-cover"
           />
         ) : (
